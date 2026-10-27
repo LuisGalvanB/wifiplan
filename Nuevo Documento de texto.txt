@@ -1,0 +1,825 @@
+Actúa como ingeniero principal responsable de reparar, completar, asegurar y validar de extremo a extremo la aplicación WifiPlan.
+
+OBJETIVO GENERAL
+
+Deja la aplicación completamente funcional y reproducible:
+
+- Frontend Next.js y TypeScript.
+- Backend FastAPI y Python.
+- PostgreSQL y migraciones Alembic.
+- Redis y Celery.
+- MinIO/S3.
+- Autenticación y autorización multi-tenant.
+- Proyectos, edificios y plantas.
+- Subida y procesamiento de planos.
+- Editor 2D y vista 3D.
+- Colocación de puntos de acceso.
+- Simulación RF y heatmaps.
+- Reportes.
+- Nueva sección educativa con todas las animaciones Wi-Fi proporcionadas.
+
+MODO DE TRABAJO AUTÓNOMO
+
+- Trabaja de forma completamente autónoma.
+- NO me hagas preguntas.
+- NO solicites confirmaciones intermedias.
+- Considera aprobados todos los cambios necesarios dentro de este proyecto.
+- Puedes crear, editar, mover o eliminar archivos internos del proyecto.
+- Puedes instalar dependencias, ejecutar comandos, migraciones, builds, linters y pruebas.
+- Si encuentras una decisión ambigua, selecciona la solución más sencilla, estable, segura y compatible con la arquitectura existente.
+- No te detengas después de una corrección parcial.
+- No termines entregando tareas pendientes que puedas ejecutar.
+- No modifiques archivos externos al proyecto.
+- No borres datos reales.
+- No reveles secretos.
+- No inventes credenciales.
+- Si falta una credencial externa, usa una variable documentada en `.env.example` con un valor ficticio seguro y continúa con todo lo demás.
+
+PROBLEMAS YA DETECTADOS
+
+Debes reproducir, corregir y cubrir con pruebas los siguientes problemas.
+
+1. Dependencias incompatibles del frontend
+
+`npm ci` falla con `ERESOLVE` porque:
+
+- El proyecto usa React 18.
+- Next.js 14 requiere React 18.
+- `@react-three/fiber@9.6.1` requiere React 19.
+- `@react-three/drei@10.7.7` requiere React 19.
+
+Corrige el árbol de dependencias correctamente.
+
+Preferentemente conserva Next.js 14 y React 18 e instala versiones compatibles de React Three Fiber y Drei, salvo que una actualización coordinada completa sea más segura.
+
+La solución final debe permitir:
+
+`npm ci`
+
+sin utilizar:
+
+- `--force`
+- `--legacy-peer-deps`
+
+No ocultes el conflicto.
+
+2. Versión incompatible de Node
+
+`camera-controls@3.1.2` requiere Node 22 o superior, pero el Dockerfile utiliza Node 20.
+
+Corrige la dependencia transitiva o actualiza coordinadamente:
+
+- Dockerfile.
+- Documentación.
+- Configuración de desarrollo.
+- CI, si existe.
+- `package.json`, incluyendo `engines`.
+
+3. Vulnerabilidades de npm
+
+Se detectaron 12 vulnerabilidades:
+
+- 1 moderada.
+- 10 altas.
+- 1 crítica.
+
+Ejecuta la auditoría, identifica los paquetes responsables y corrígelos sin romper la aplicación.
+
+No uses `npm audit fix --force` como solución ciega. Si necesitas un cambio mayor, ejecútalo de forma controlada y valida toda la aplicación.
+
+4. Worker de Celery mal configurado
+
+El servicio `worker` de `docker-compose.yml` hereda el comando de Uvicorn y no inicia un worker Celery real.
+
+Configúralo para consumir ambas colas:
+
+`celery -A app.workers.celery_app worker --loglevel=info -Q cv_pipeline,rf_engine`
+
+Añade una comprobación de salud o una verificación funcional equivalente.
+
+5. Los archivos subidos no se guardan realmente
+
+La subida de planos crea un registro `FloorPlanAsset`, pero no almacena el archivo original en MinIO/S3.
+
+Esto genera URLs hacia objetos inexistentes.
+
+Corrige el flujo para que:
+
+- El archivo se valide.
+- El nombre se normalice.
+- Se almacene realmente en MinIO.
+- Se cree el asset.
+- Se cree el job.
+- El worker reciba una referencia al objeto.
+- Exista rollback o limpieza si alguna operación falla.
+- La URL firmada permita recuperar el archivo.
+
+6. Archivos demasiado grandes enviados por Celery
+
+Actualmente archivos de hasta 50 MB se convierten a hexadecimal y se envían mediante Redis/Celery, duplicando aproximadamente su tamaño.
+
+Corrige el diseño:
+
+- Guarda primero el archivo en MinIO.
+- Envía al worker solo `asset_id`, bucket/key o una referencia pequeña.
+- Haz que el worker descargue el archivo.
+- No envíes archivos grandes dentro del mensaje Celery.
+
+7. Endpoints de subida duplicados
+
+Existen:
+
+- `/floors/{floor_id}/upload`
+- `/floors/{floor_id}/upload-plan`
+
+Unifica la lógica.
+
+Si necesitas conservar ambos por compatibilidad, uno debe actuar como alias de una única implementación compartida, sin duplicación.
+
+8. Fallos graves de autorización multi-tenant
+
+La autenticación no garantiza aislamiento entre organizaciones.
+
+Corrige todos los endpoints relacionados con:
+
+- Floors.
+- Geometry.
+- APs.
+- Jobs.
+- Uploads.
+- Assets.
+- RF.
+- Buildings.
+- Projects.
+- Reports.
+
+Problemas concretos:
+
+- Algunos endpoints verifican autenticación, pero no membresía.
+- `get_job` permite buscar trabajos por ID sin comprobar propietario u organización.
+- Algunos endpoints anidados no verifican que `org_id`, `project_id`, `building_id` y `floor_id` pertenezcan a la misma jerarquía.
+- El reporte no comprueba correctamente la membresía.
+- Un usuario podría acceder a recursos de otra organización si conoce sus identificadores.
+
+Implementa autorización centralizada y reutilizable.
+
+Roles:
+
+- Viewer: solo lectura.
+- Editor: lectura y edición.
+- Admin: administración y operaciones destructivas.
+
+Añade pruebas con dos organizaciones y verifica que el acceso cruzado devuelva 403 o 404 de forma consistente.
+
+9. UUID aleatorio como organización de respaldo
+
+Algunos flujos generan un UUID aleatorio cuando no encuentran el proyecto u organización.
+
+Esto puede provocar errores de claves foráneas y ocultar corrupción de datos.
+
+Elimina esos fallbacks y devuelve un error explícito con rollback.
+
+10. CORS incorrecto
+
+El backend tiene orígenes codificados manualmente y no utiliza correctamente `settings.allowed_origins_list`.
+
+Centraliza la configuración.
+
+No combines:
+
+- `Access-Control-Allow-Origin: *`
+- Credenciales habilitadas.
+
+Elimina headers CORS innecesarios del frontend si no tienen efecto.
+
+11. Problemas de hidratación y autenticación
+
+El frontend puede redirigir al login antes de que termine la hidratación y `fetchMe`.
+
+Implementa estados explícitos:
+
+- `initializing`
+- `authenticated`
+- `unauthenticated`
+
+No redirijas antes de comprobar el token.
+
+Verifica:
+
+- Login.
+- Registro.
+- Refresh token.
+- Recarga del navegador.
+- Expiración.
+- Logout.
+- Limpieza de tokens.
+- Errores de red.
+
+12. Incompatibilidad Passlib/Bcrypt
+
+`passlib==1.7.4` con `bcrypt==4.3.0` produce:
+
+`AttributeError: module 'bcrypt' has no attribute '__about__'`
+
+Corrige las versiones o migra de manera segura el sistema de hashing.
+
+Verifica que las contraseñas existentes continúen siendo válidas cuando sea posible.
+
+Añade pruebas de:
+
+- Hash.
+- Verificación correcta.
+- Contraseña incorrecta.
+- Contraseña demasiado larga o inválida.
+- Registro y login.
+
+13. Advertencias de Pydantic
+
+Existen advertencias por:
+
+- `model_name`
+- `model_number`
+
+Configura explícitamente `protected_namespaces` donde corresponda sin renombrar innecesariamente el contrato público.
+
+14. Advertencias de ESLint
+
+Corrige las causas de estas advertencias:
+
+- `frontend/app/dashboard/page.tsx`: `Organization` sin utilizar.
+- Página del planner: `Floor` y `orgId` sin utilizar.
+- `CVReviewPanel.tsx`: `ExclamationTriangleIcon` y `qc` sin utilizar.
+- `JobProgressBanner.tsx`: parámetros `j` sin utilizar.
+- `ScaleCalibrationModal.tsx`: variables y estados sin utilizar.
+- `ScaleCalibrationModal.tsx`: dependencia faltante `drawPreview` en `useCallback`.
+
+No desactives reglas para ocultarlas.
+
+15. El lint del backend oculta errores
+
+El target `make lint` termina con `|| true`.
+
+Corrígelo para que el comando falle cuando existan errores.
+
+Añade Ruff como dependencia de desarrollo y configura lint para frontend y backend.
+
+16. Dependencias Python duplicadas
+
+`requirements.txt` declara Pillow más de una vez con restricciones diferentes.
+
+Elimina duplicados y deja dependencias coherentes y reproducibles.
+
+Separa dependencias de desarrollo si resulta conveniente.
+
+17. Migraciones inseguras
+
+La migración que añade `source_type` como NOT NULL puede fallar sobre bases que ya contienen datos.
+
+Corrige el proceso usando:
+
+- Valor temporal o server default.
+- Backfill.
+- Conversión a NOT NULL después del backfill.
+- Eliminación del default temporal cuando corresponda.
+
+Revisa coherencia entre:
+
+- Modelos SQLAlchemy.
+- Migraciones Alembic.
+- Enums.
+- Índices.
+- Defaults.
+- Nullability.
+- Relaciones.
+- Eliminaciones en cascada.
+
+Prueba migración desde cero y actualización desde una versión anterior con datos.
+
+18. Exposición de errores internos
+
+Los endpoints de subida devuelven `str(exception)` al cliente.
+
+Registra los detalles internamente, pero devuelve mensajes seguros y controlados.
+
+19. Soporte DWG incompleto
+
+El backend anuncia soporte DWG, pero el contenedor no incluye ODA File Converter.
+
+Implementa realmente el soporte y valida la presencia del binario, o elimina temporalmente DWG de formatos admitidos.
+
+Alinea:
+
+- Backend.
+- Frontend.
+- Validaciones.
+- Documentación.
+- Tests.
+
+20. Archivos sensibles y generados
+
+El proyecto contiene elementos que no deberían versionarse:
+
+- `.env`
+- `.env.local`
+- Dumps de base de datos.
+- `__pycache__`
+- Archivos `.pyc`
+- `.next`
+- `node_modules`
+
+No muestres ni publiques secretos.
+
+Mantén `.env.example` únicamente con valores ficticios seguros.
+
+Actualiza:
+
+- `.gitignore`
+- `.dockerignore`
+
+No borres datos reales sin necesidad; retira del control de versiones los artefactos inapropiados.
+
+21. Estado actual de pruebas
+
+Se observó:
+
+- Backend: 33 pruebas aprobadas.
+- Backend: 30 pruebas omitidas por no disponer de PostgreSQL.
+- TypeScript: sin errores después de una instalación forzada.
+- Build de Next.js: exitoso después de usar `--legacy-peer-deps`.
+- ESLint: varias advertencias.
+
+La validación final debe ejecutarse con PostgreSQL real.
+
+No aceptes 30 pruebas omitidas como resultado final.
+
+22. Otros puntos que debes revisar
+
+- Transacciones y rollback.
+- Manejo de errores en workers.
+- Reintentos idempotentes.
+- Validación del contenido real de archivos, no solo extensión.
+- Nombres de archivo y claves S3 seguras.
+- Límites de tamaño.
+- Procesamiento streaming cuando sea razonable.
+- Estados loading/error/empty del frontend.
+- Polling de jobs.
+- URLs públicas de MinIO.
+- Persistencia y visualización del plano.
+- Generación y visualización del heatmap.
+- Coherencia entre TypeScript, Pydantic y SQLAlchemy.
+- Accesibilidad.
+- Relaciones y cascadas.
+- Logs sin secretos.
+- Ausencia de código muerto.
+
+NUEVO MÓDULO EDUCATIVO: “CÓMO FUNCIONA WI-FI”
+>>C:\Users\COEM\wifiplan\frontend\app\demostración
+
+Integra obligatoriamente en la aplicación los seis archivos HTML proporcionados:
+
+- `espectro_wifi_microondas.html`
+- `ofdm_animation.html`
+- `qam_modulation_animation.html`
+- `rf_transmission_animation.html`
+- `rf_wall_attenuation.html`
+- `WiFi_Animaciones_Edutek.html`
+
+Objetivo:
+
+Crear una sección educativa, animada e interactiva dentro de WifiPlan para explicar cómo funciona Wi-Fi, la transmisión RF, las bandas, la modulación, OFDM, las colisiones y la atenuación producida por paredes.
+
+ANÁLISIS E INTEGRACIÓN DE LOS HTML
+
+1. Lee completamente cada HTML:
+   - Estructura.
+   - CSS.
+   - Canvas.
+   - JavaScript.
+   - Controles.
+   - Estados.
+   - Temporizadores.
+   - Animaciones.
+
+2. Úsalos como fuente funcional y visual, pero intégralos correctamente con Next.js.
+
+3. No uses como solución final:
+   - Iframes.
+   - `dangerouslySetInnerHTML`.
+   - Ejecución directa de scripts inline.
+   - HTML duplicado sin mantener.
+   - Código JavaScript global.
+
+4. Convierte la lógica en componentes React y TypeScript tipados.
+
+5. Conserva las funciones y animaciones existentes.
+
+RUTAS EDUCATIVAS
+
+Crea una ruta principal:
+
+`/learn`
+
+Desde ella deben poder abrirse las siguientes demostraciones:
+
+1. Espectro electromagnético y bandas Wi-Fi.
+2. Transmisión RF.
+3. Atenuación por paredes.
+4. Modulación QAM.
+5. OFDM y OFDMA.
+6. CSMA/CA y colisiones.
+7. Viaje de los datos.
+
+Puedes utilizar rutas como:
+
+- `/learn/spectrum`
+- `/learn/rf-transmission`
+- `/learn/wall-attenuation`
+- `/learn/qam`
+- `/learn/ofdm`
+- `/learn/csma-ca`
+- `/learn/data-journey`
+
+Mantén una página principal que reúna y explique todas las demostraciones.
+
+FUNCIONES QUE DEBEN CONSERVARSE
+
+Espectro:
+
+- Vista del espectro completo.
+- Zoom de microondas.
+- Zoom de bandas Wi-Fi.
+- Representación de 2.4, 5 y 6 GHz.
+
+Transmisión RF:
+
+- Reproducir.
+- Pausar.
+- Seleccionar 2.4 GHz.
+- Seleccionar 5 GHz.
+- Seleccionar 6 GHz.
+- Agregar paredes.
+
+Atenuación:
+
+- Pausar y reanudar.
+- Concreto.
+- Vidrio.
+- Madera.
+- Metal.
+- Varias paredes.
+- Mostrar pérdida acumulada en dB.
+- Mostrar nivel de señal antes y después de cada obstáculo.
+
+QAM:
+
+- BPSK.
+- 16-QAM.
+- 64-QAM.
+- 256-QAM.
+- 1024-QAM.
+- Activar o desactivar ruido.
+- Mostrar bits por símbolo.
+- Mostrar constelación, amplitud, fase y símbolos.
+
+OFDM:
+
+- Portadora única.
+- OFDM con múltiples subportadoras.
+- OFDMA.
+- Cyclic prefix.
+- Explicación de ortogonalidad y asignación de usuarios.
+
+Experiencia combinada EduTek:
+
+- Navegación entre QAM, OFDM, CSMA/CA y viaje del dato.
+- Reiniciar.
+- Agregar dispositivo.
+- Forzar colisión.
+- Enviar dato.
+- Ejecución paso a paso.
+- Velocidad normal y rápida.
+
+REUTILIZACIÓN
+
+Los HTML contienen funciones repetidas, especialmente para QAM y OFDM.
+
+No mantengas implementaciones duplicadas.
+
+Crea componentes reutilizables y usa la misma implementación en:
+
+- Páginas individuales.
+- Página general.
+- Experiencia combinada EduTek.
+
+INTEGRACIÓN CON WIFIPLAN
+
+1. Añade un acceso visible “Cómo funciona Wi-Fi” en:
+   - Dashboard.
+   - Navegación principal.
+   - Planificador.
+
+2. Desde el selector de banda del planificador, permite abrir la explicación de la banda seleccionada.
+
+3. Desde una pared seleccionada, permite abrir la demostración de atenuación usando:
+   - Material actual.
+   - Banda seleccionada.
+   - Valor de atenuación correspondiente.
+
+4. Mantén sincronizados los valores educativos de atenuación con los usados por el motor RF.
+
+5. Crea una única fuente de verdad o un contrato compartido para:
+   - Bandas.
+   - Materiales.
+   - Atenuaciones.
+   - Colores.
+   - Unidades.
+
+6. Explica que las animaciones son educativas y no sustituyen una medición o simulación electromagnética profesional.
+
+REQUISITOS DE CANVAS Y ANIMACIÓN
+
+- Usa `useRef` y `useEffect`.
+- No accedas a `window`, `document` o Canvas durante SSR.
+- Usa componentes cliente únicamente cuando sea necesario.
+- Cancela todos los `requestAnimationFrame` al desmontar.
+- Limpia listeners, ResizeObserver, intervalos y timeouts.
+- No modifiques globalmente `CanvasRenderingContext2D.prototype`.
+- Implementa helpers locales para figuras redondeadas.
+- Soporta `devicePixelRatio`.
+- Mantén canvas nítidos y responsive.
+- Evita deformación al redimensionar.
+- Evita iniciar dos bucles al cambiar de estado o ruta.
+- Pausa cuando la pestaña no esté visible.
+- Pausa cuando la animación esté fuera del viewport si resulta apropiado.
+- Respeta `prefers-reduced-motion`.
+- Evita consumo excesivo de CPU y memoria.
+- Mantén una frecuencia de animación estable.
+
+EXPERIENCIA Y ACCESIBILIDAD
+
+- Todo el contenido debe estar en español.
+- Integra el diseño con Tailwind y la estética actual de WifiPlan.
+- Debe funcionar en móvil, tablet y escritorio.
+- Añade navegación clara y botón de regreso.
+- Añade explicación breve de cada demostración.
+- Muestra leyendas, unidades y valores actuales.
+- Los controles deben funcionar con teclado.
+- Añade nombres accesibles.
+- Mantén foco visible.
+- Usa contraste suficiente.
+- No dependas únicamente del color.
+- Añade una alternativa textual para usuarios que reduzcan movimiento.
+- Muestra errores de canvas de forma controlada.
+
+EXACTITUD TÉCNICA
+
+Verifica que:
+
+- Las bandas Wi-Fi estén representadas correctamente.
+- No se confunda frecuencia con velocidad de propagación.
+- Se explique la relación entre frecuencia y longitud de onda.
+- BPSK represente 1 bit por símbolo.
+- Cada QAM muestre correctamente `log2(M)` bits por símbolo.
+- OFDM y OFDMA estén diferenciados.
+- Se explique correctamente la ortogonalidad.
+- Cyclic prefix tenga una explicación correcta.
+- CSMA/CA no se represente como CSMA/CD.
+- La atenuación se muestre en dB de forma coherente.
+- La intensidad visual no se presente como una medición científica exacta.
+- Los materiales usen valores consistentes con el motor RF.
+
+PRUEBAS DEL MÓDULO EDUCATIVO
+
+Añade pruebas de componentes y pruebas E2E.
+
+Comprueba:
+
+- Todas las rutas cargan.
+- Ningún canvas queda vacío.
+- No existen errores de hidratación.
+- Reproducir inicia la animación.
+- Pausar detiene realmente el bucle.
+- Reiniciar restaura el estado inicial.
+- Los selectores cambian la simulación.
+- Agregar pared modifica la transmisión.
+- Cambiar material modifica la atenuación.
+- Varias paredes acumulan pérdida.
+- Activar ruido modifica la constelación QAM.
+- Cambiar modulación modifica símbolos y bits.
+- Cambiar OFDM/OFDMA modifica la visualización.
+- Forzar colisión produce el estado esperado.
+- Paso a paso avanza un único paso.
+- Cambiar de ruta libera animaciones y listeners.
+- La navegación desde dashboard y planner funciona.
+- Funciona en tamaños móviles y escritorio.
+- No hay errores ni advertencias en la consola.
+- Las animaciones respetan movimiento reducido.
+- No existen fugas de memoria evidentes.
+
+CICLO AUTÓNOMO OBLIGATORIO
+
+Repite continuamente este ciclo:
+
+1. Inspecciona la estructura, documentación y configuración.
+2. Identifica la causa raíz de cada problema.
+3. Instala dependencias de forma limpia.
+4. Reproduce los errores.
+5. Implementa una corrección pequeña y coherente.
+6. Añade o actualiza pruebas de regresión.
+7. Ejecuta las comprobaciones afectadas.
+8. Examina los nuevos errores y logs.
+9. Corrige el siguiente problema.
+10. Ejecuta nuevamente toda la batería.
+11. Continúa hasta que no existan errores, advertencias importantes, pruebas críticas omitidas o flujos incompletos.
+
+No te detengas después de que solamente compile.
+
+VALIDACIÓN TÉCNICA OBLIGATORIA
+
+Ejecuta, cuando corresponda:
+
+Frontend:
+
+- `npm ci`
+- auditoría de dependencias
+- TypeScript `--noEmit`
+- ESLint
+- pruebas unitarias
+- pruebas de componentes
+- build de producción
+- pruebas E2E
+
+Backend:
+
+- instalación limpia en Python 3.11
+- Ruff
+- comprobación de imports
+- pruebas unitarias
+- pruebas de integración
+- pruebas de seguridad multi-tenant
+- pruebas de workers
+
+Infraestructura:
+
+- validación de Docker Compose
+- build limpio de imágenes
+- arranque de todos los servicios
+- healthchecks
+- migraciones desde una base vacía
+- migración desde una base anterior con datos
+- seed idempotente
+- verificación de PostgreSQL
+- verificación de Redis
+- verificación de MinIO
+- verificación de Celery y ambas colas
+
+PRUEBAS FUNCIONALES DE EXTREMO A EXTREMO
+
+Valida:
+
+1. Registro de usuario y organización.
+2. Login.
+3. Refresh token.
+4. Persistencia tras recargar.
+5. Logout.
+6. Creación de proyecto.
+7. Creación de edificio.
+8. Creación de planta.
+9. Separación entre dos organizaciones.
+10. Roles viewer, editor y admin.
+11. Subida de PNG.
+12. Subida de JPG.
+13. Subida de PDF.
+14. Subida de DXF.
+15. DWG solo si está realmente soportado.
+16. Rechazo seguro de archivos inválidos.
+17. Archivo almacenado en MinIO.
+18. Recuperación mediante URL firmada.
+19. Job consumido por Celery.
+20. Job finalizado correctamente.
+21. Paredes detectadas.
+22. Aceptación, edición y eliminación de paredes.
+23. Colocación y movimiento de AP.
+24. Calibración de escala.
+25. Simulación RF en 2.4 GHz.
+26. Simulación RF en 5 GHz.
+27. Simulación RF en 6 GHz.
+28. Creación del heatmap.
+29. Visualización del heatmap.
+30. Vista 2D.
+31. Vista 3D.
+32. Reporte JSON.
+33. Módulo educativo completo.
+34. Navegación entre planificador y animaciones.
+35. Arranque limpio después de eliminar contenedores y volúmenes de prueba.
+
+PRUEBAS DE FALLOS
+
+Valida comportamiento cuando:
+
+- PostgreSQL no está disponible.
+- Redis no está disponible.
+- MinIO no está disponible.
+- Celery no está disponible.
+- Un job falla.
+- El archivo está corrupto.
+- El token está vencido.
+- El usuario no tiene permisos.
+- Se intenta acceder a otra organización.
+- La URL firmada expiró.
+- La API devuelve un error.
+- Canvas no está disponible.
+
+La interfaz debe mostrar mensajes útiles y no quedarse bloqueada.
+
+REGLAS DE CALIDAD
+
+- No ocultes errores.
+- No desactives pruebas.
+- No desactives TypeScript.
+- No desactives ESLint para silenciar problemas.
+- No uses `any` innecesariamente.
+- No uses `@ts-ignore` como solución.
+- No uses excepciones vacías.
+- No uses `|| true` para ocultar fallos.
+- No dejes logs de depuración.
+- No dejes código comentado obsoleto.
+- No dejes archivos temporales.
+- No uses datos falsos para simular que un flujo funciona.
+- No sustituyas integraciones esenciales por mocks en la validación final.
+- No hagas refactorizaciones no relacionadas.
+- No introduzcas dependencias innecesarias.
+- Mantén compatibilidad y seguridad.
+- Documenta decisiones relevantes.
+
+CRITERIOS DE FINALIZACIÓN
+
+No declares el trabajo terminado hasta conseguir:
+
+- `npm ci` funciona sin flags de compatibilidad forzada.
+- No hay conflictos de dependencias.
+- TypeScript no tiene errores.
+- ESLint no tiene errores ni advertencias relevantes.
+- Ruff no tiene errores.
+- Build frontend exitoso.
+- Build backend exitoso.
+- Docker Compose válido.
+- Todas las imágenes construyen.
+- Todos los servicios arrancan.
+- Healthchecks correctos.
+- Migraciones correctas desde cero y sobre datos existentes.
+- Seed correcto e idempotente.
+- Todas las pruebas unitarias pasan.
+- Todas las pruebas de integración pasan.
+- Ninguna prueba crítica queda omitida.
+- Worker Celery consume ambas colas.
+- Upload y descarga desde MinIO funcionan.
+- Los heatmaps se generan y visualizan.
+- La autorización multi-tenant está cubierta con pruebas.
+- No hay secretos versionados.
+- No hay vulnerabilidades críticas conocidas sin justificar.
+- Las seis páginas HTML están integradas.
+- No se utilizan iframes como solución final.
+- Todas las animaciones funcionan.
+- No existen fugas de animation frames, listeners o temporizadores.
+- Todas las rutas educativas funcionan.
+- No hay errores relevantes en logs o consola.
+- La documentación permite reproducir el arranque desde cero.
+
+REVISIÓN FINAL
+
+Antes de terminar:
+
+1. Revisa el diff completo.
+2. Elimina cambios innecesarios.
+3. Elimina código temporal.
+4. Repite todos los linters.
+5. Repite todos los tests.
+6. Repite todos los builds.
+7. Repite las pruebas E2E.
+8. Revisa logs.
+9. Confirma que el repositorio está limpio de secretos y artefactos.
+10. Confirma que la documentación coincide con el funcionamiento real.
+
+INFORME FINAL
+
+Cuando todos los criterios se hayan cumplido, entrega un informe con:
+
+- Causas raíz encontradas.
+- Archivos modificados.
+- Cambios realizados.
+- Problemas de seguridad corregidos.
+- Dependencias actualizadas.
+- Migraciones modificadas.
+- Pruebas añadidas.
+- Comandos ejecutados.
+- Resultado exacto de lint.
+- Resultado exacto de TypeScript.
+- Resultado exacto de pruebas.
+- Resultado exacto de builds.
+- Servicios verificados.
+- Flujos E2E comprobados.
+- Animaciones integradas.
+- Cualquier limitación externa real que no pueda resolverse desde el proyecto.
+
+Comienza ahora. No hagas preguntas, no esperes instrucciones adicionales y ejecuta el ciclo hasta dejar WifiPlan completamente funcional.

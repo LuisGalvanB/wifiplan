@@ -1,0 +1,283 @@
+
+<h2 class="sr-only">Animación del espectro electromagnético mostrando dónde se ubican las bandas Wi-Fi dentro de las microondas</h2>
+<canvas id="cv" style="width:100%;display:block;border-radius:10px;"></canvas>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+  <button onclick="setZoom('full')"  id="z-full"  style="font-size:12px;">🌍 Ver espectro completo</button>
+  <button onclick="setZoom('micro')" id="z-micro" style="font-size:12px;" class="zact">📡 Zoom: Microondas</button>
+  <button onclick="setZoom('wifi')"  id="z-wifi"  style="font-size:12px;">🔍 Zoom: Bandas Wi-Fi</button>
+</div>
+<style>.zact{outline:2px solid var(--color-border-info);background:var(--color-background-info);color:var(--color-text-info);}</style>
+<script>
+(function(){
+const cv=document.getElementById('cv');
+const cx=cv.getContext('2d');
+const DPR=window.devicePixelRatio||1;
+const dk=matchMedia('(prefers-color-scheme:dark)').matches;
+let W=0,H=0,t=0,zoom='micro',animId=null;
+
+function sz(){
+  W=cv.parentElement.offsetWidth||680;H=420;
+  cv.width=W*DPR;cv.height=H*DPR;
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  cx.setTransform(DPR,0,0,DPR,0,0);
+}
+
+// ── palette ──
+const BG   =dk?'#080E1C':'#F2F5FF';
+const BG2  =dk?'rgba(255,255,255,0.03)':'rgba(0,0,100,0.03)';
+const GR   =dk?'rgba(255,255,255,0.035)':'rgba(0,0,120,0.04)';
+const TX   =dk?'#CDD5E0':'#1A2436';
+const TXs  =dk?'#5A6880':'#8090A8';
+const LINE =dk?'rgba(255,255,255,0.08)':'rgba(0,0,80,0.1)';
+
+// ── spectrum bands (log-scale positions 0→1) ──
+// Full spectrum: 3Hz → 3×10²⁴ Hz  (log10 range 0.5 → 24.5)
+function log2pos(hz){ return (Math.log10(hz)-0.5)/24; }
+
+const BANDS_FULL=[
+  {name:'Radio AM/FM',   f0:3e4,  f1:3e8,  col:'#5DCAA5', y:0.18},
+  {name:'Microondas',    f0:3e8,  f1:3e11, col:'#378ADD', y:0.18, highlight:true},
+  {name:'Infrarrojo',   f0:3e11, f1:4e14, col:'#EF9F27', y:0.18},
+  {name:'Luz visible',  f0:4e14, f1:7.5e14,col:'#D4537E',y:0.18},
+  {name:'Ultravioleta', f0:7.5e14,f1:3e17,col:'#7F77DD', y:0.18},
+  {name:'Rayos X',      f0:3e17, f1:3e20, col:'#E84040', y:0.18},
+  {name:'Rayos gamma',  f0:3e20, f1:3e24, col:'#D85A30', y:0.18},
+];
+
+const WIFI_BANDS=[
+  {name:'2.4 GHz',  f:2.4e9,  col:'#5DCAA5', std:'802.11b/g/n/ax', wl:'12.5 cm', note:'Mayor alcance\nmenos canales'},
+  {name:'5 GHz',    f:5e9,    col:'#378ADD', std:'802.11a/n/ac/ax',wl:'6 cm',    note:'Balance ideal\n25 canales'},
+  {name:'6 GHz',    f:6e9,    col:'#7F77DD', std:'802.11ax Wi-Fi 6E',wl:'5 cm', note:'Wi-Fi 6E · nuevo\n59 canales'},
+  {name:'60 GHz',   f:60e9,   col:'#EF9F27', std:'802.11ad WiGig',  wl:'5 mm',  note:'Ultra rápido\nalcance <10m'},
+];
+
+// ── zoom presets ──
+const ZOOMS={
+  full: {lo:0.5, hi:24,   label:'Espectro electromagnético completo'},
+  micro:{lo:8.5, hi:11.5, label:'Banda de microondas (300 MHz → 300 GHz)'},
+  wifi: {lo:9.3, hi:10.9, label:'Bandas Wi-Fi dentro de las microondas'},
+};
+
+let curZoom={...ZOOMS.micro};
+let targetZoom={...ZOOMS.micro};
+let zoomT=1;
+
+function lerpZoom(){
+  zoomT=Math.min(1,zoomT+0.04);
+  const e=1-(1-zoomT)*(1-zoomT);
+  curZoom.lo=curZoom.lo+(targetZoom.lo-curZoom.lo)*e*0.12;
+  curZoom.hi=curZoom.hi+(targetZoom.hi-curZoom.hi)*e*0.12;
+}
+
+function log2x(hz){
+  const l=Math.log10(hz);
+  return (l-curZoom.lo)/(curZoom.hi-curZoom.lo)*W;
+}
+
+// ── draw full spectrum bar ──
+function drawSpectrumBar(){
+  const barY=H*0.18, barH=44;
+  // gradient segments
+  BANDS_FULL.forEach(b=>{
+    const x0=log2x(b.f0), x1=log2x(b.f1);
+    if(x1<0||x0>W)return;
+    const [r,g,bb]=h2rgb(b.col);
+    cx.fillStyle=`rgba(${r},${g},${bb},${b.highlight?0.45:0.22})`;
+    cx.beginPath();cx.roundRect(Math.max(0,x0),barY,Math.min(W,x1)-Math.max(0,x0),barH,0);cx.fill();
+    if(b.highlight){
+      cx.strokeStyle=b.col;cx.lineWidth=2;cx.setLineDash([]);
+      cx.strokeRect(Math.max(0,x0),barY,Math.min(W,x1)-Math.max(0,x0),barH);
+    }
+    // band name
+    const mx=Math.max(0,x0)+(Math.min(W,x1)-Math.max(0,x0))/2;
+    if(mx>0&&mx<W){
+      cx.fillStyle=b.highlight?b.col:TXs;
+      cx.font=(b.highlight?'bold ':'')+'10px sans-serif';cx.textAlign='center';
+      cx.fillText(b.name,mx,barY+barH/2+4);
+    }
+  });
+
+  // axis ticks
+  const ticks=[{hz:1e6,l:'1 MHz'},{hz:1e7,l:'10 MHz'},{hz:1e8,l:'100 MHz'},{hz:1e9,l:'1 GHz'},{hz:1e10,l:'10 GHz'},{hz:1e11,l:'100 GHz'},{hz:1e12,l:'1 THz'},{hz:1e14,l:'100 THz'},{hz:1e15,l:'1 PHz'},{hz:1e18,l:'1 EHz'},{hz:1e21,l:'1 ZHz'}];
+  ticks.forEach(({hz,l})=>{
+    const x=log2x(hz);
+    if(x<10||x>W-10)return;
+    cx.strokeStyle=LINE;cx.lineWidth=1;
+    cx.beginPath();cx.moveTo(x,barY+barH);cx.lineTo(x,barY+barH+6);cx.stroke();
+    cx.fillStyle=TXs;cx.font='9px monospace';cx.textAlign='center';
+    cx.fillText(l,x,barY+barH+17);
+  });
+
+  // section label
+  cx.fillStyle=TX;cx.font='500 11px sans-serif';cx.textAlign='center';
+  cx.fillText(ZOOMS[zoom].label,W/2,barY-10);
+}
+
+// ── draw microwave zoom detail ──
+function drawMicroDetail(){
+  const detY=H*0.42, detH=H*0.22;
+  const bandFill=[
+    {lo:3e8, hi:1e9, col:'#888780',name:'UHF/Radar'},
+    {lo:1e9, hi:3e9, col:'#5DCAA5',name:'L/S band · GPS · Bluetooth'},
+    {lo:2e9, hi:3e9, col:'#5DCAA5',name:''},
+    {lo:2.4e9,hi:2.5e9,col:'#5DCAA5',name:'', wifi:true},
+    {lo:3e9, hi:6e9, col:'#378ADD',name:'C/X band · Wi-Fi 5/6GHz'},
+    {lo:4.9e9,hi:5.9e9,col:'#378ADD',name:'', wifi:true},
+    {lo:5.9e9,hi:7.2e9,col:'#7F77DD',name:'', wifi:true},
+    {lo:6e9,  hi:3e10, col:'#EF9F27',name:'Ku/K band · satélite'},
+    {lo:5.7e10,hi:7e10,col:'#EF9F27',name:'', wifi:true},
+    {lo:3e10, hi:3e11, col:'#D85A30',name:'mm-wave'},
+  ];
+
+  // background
+  cx.fillStyle=BG2;cx.fillRect(0,detY,W,detH);
+  cx.strokeStyle=LINE;cx.lineWidth=0.5;cx.strokeRect(0,detY,W,detH);
+
+  // band colors
+  bandFill.filter(b=>!b.wifi).forEach(b=>{
+    const x0=log2x(b.f0),x1=log2x(b.f1);
+    if(x1<0||x0>W)return;
+    const [r,g,bb]=h2rgb(b.col);
+    cx.fillStyle=`rgba(${r},${g},${bb},0.1)`;
+    cx.fillRect(Math.max(0,x0),detY,Math.min(W,x1)-Math.max(0,x0),detH);
+    if(b.name){
+      const mx=Math.max(0,x0)+(Math.min(W,x1)-Math.max(0,x0))/2;
+      if(mx>8&&mx<W-8){
+        cx.fillStyle=`rgba(${r},${g},${bb},0.7)`;
+        cx.font='9px sans-serif';cx.textAlign='center';
+        cx.fillText(b.name,mx,detY+14);
+      }
+    }
+  });
+
+  // Wi-Fi band highlights with pulse
+  WIFI_BANDS.forEach((wb,i)=>{
+    const bw=(wb.f===2.4e9)?1e8:(wb.f===5e9)?1e9:(wb.f===6e9)?1.2e9:3e9;
+    const x0=log2x(wb.f-bw/2), x1=log2x(wb.f+bw/2);
+    if(x1<0||x0>W)return;
+    const [r,g,bb]=h2rgb(wb.col);
+    const pulse=0.6+0.4*Math.sin(t*2+i*1.2);
+    cx.fillStyle=`rgba(${r},${g},${bb},${(pulse*0.35).toFixed(2)})`;
+    cx.fillRect(Math.max(0,x0),detY,Math.min(W,x1)-Math.max(0,x0),detH);
+    cx.strokeStyle=wb.col;cx.lineWidth=2;cx.setLineDash([]);
+    cx.strokeRect(Math.max(0,x0),detY,Math.min(W,x1)-Math.max(0,x0),detH);
+
+    // label above
+    const mx=(Math.max(0,x0)+Math.min(W,x1))/2;
+    if(mx>8&&mx<W-8){
+      cx.fillStyle=wb.col;cx.font='bold 11px sans-serif';cx.textAlign='center';
+      cx.fillText(wb.name,mx,detY-6);
+    }
+  });
+
+  // connector lines from spectrum bar to detail panel
+  WIFI_BANDS.forEach(wb=>{
+    const bx=log2x(wb.f);
+    if(bx<0||bx>W)return;
+    const barBottom=H*0.18+44+17;
+    cx.strokeStyle=`rgba(${h2rgb(wb.col).join(',')},0.3)`;
+    cx.lineWidth=1;cx.setLineDash([3,3]);
+    cx.beginPath();cx.moveTo(bx,barBottom+4);cx.lineTo(bx,detY);cx.stroke();
+    cx.setLineDash([]);
+  });
+}
+
+// ── draw Wi-Fi band cards ──
+function drawWiFiCards(){
+  const visible=WIFI_BANDS.filter(wb=>log2x(wb.f)>-20&&log2x(wb.f)<W+20);
+  const cardY=H*0.68, cardH=H*0.26;
+  const gap=8;
+  const cw=(W-(visible.length-1)*gap)/visible.length;
+
+  visible.forEach((wb,i)=>{
+    const cx2=i*(cw+gap);
+    const [r,g,b]=h2rgb(wb.col);
+    const pulse=0.5+0.5*Math.sin(t*2.5+i*1.4);
+
+    // card bg
+    cx.fillStyle=`rgba(${r},${g},${b},0.1)`;
+    cx.beginPath();cx.roundRect(cx2,cardY,cw,cardH,8);cx.fill();
+    cx.strokeStyle=`rgba(${r},${g},${b},${(0.4+0.3*pulse).toFixed(2)})`;
+    cx.lineWidth=1.5;
+    cx.beginPath();cx.roundRect(cx2,cardY,cw,cardH,8);cx.stroke();
+
+    // freq name big
+    cx.fillStyle=wb.col;cx.font='bold 14px sans-serif';cx.textAlign='center';
+    cx.fillText(wb.name,cx2+cw/2,cardY+20);
+
+    // small wave animation
+    const waveY=cardY+38, waveH=26, waveAmp=waveH*0.42;
+    const cycles=wb.f===2.4e9?2:wb.f===5e9?4:wb.f===6e9?5:12;
+    cx.beginPath();
+    for(let px=4;px<=cw-4;px+=2){
+      const norm=(px-4)/(cw-8);
+      const wy=waveY+waveH/2-waveAmp*Math.sin(cycles*Math.PI*2*norm-t*(wb.f===2.4e9?2:wb.f===5e9?2.5:wb.f===6e9?3:4));
+      if(px===4)cx.moveTo(cx2+px,wy);else cx.lineTo(cx2+px,wy);
+    }
+    cx.strokeStyle=`rgba(${r},${g},${b},0.85)`;cx.lineWidth=2;cx.stroke();
+
+    // λ annotation
+    const lamW=(cw-8)/cycles;
+    cx.strokeStyle=`rgba(${r},${g},${b},0.3)`;cx.lineWidth=1;cx.setLineDash([2,2]);
+    cx.beginPath();cx.moveTo(cx2+4,waveY+waveH+4);cx.lineTo(cx2+4+lamW,waveY+waveH+4);cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle=`rgba(${r},${g},${b},0.7)`;cx.font='9px monospace';cx.textAlign='center';
+    cx.fillText('λ='+wb.wl,cx2+4+lamW/2,waveY+waveH+15);
+
+    // meta
+    cx.fillStyle=TXs;cx.font='9px sans-serif';cx.textAlign='center';
+    cx.fillText(wb.std,cx2+cw/2,cardY+cardH-26);
+    const noteLines=wb.note.split('\n');
+    noteLines.forEach((l,ni)=>{
+      cx.fillStyle=TX;cx.font='500 10px sans-serif';
+      cx.fillText(l,cx2+cw/2,cardY+cardH-14+ni*12);
+    });
+  });
+}
+
+// ── draw "you are here" arrow when fully zoomed ──
+function drawMicroLabel(){
+  if(zoom!=='full')return;
+  const bx=log2x(1e9), ex=log2x(3e11);
+  if(ex<0||bx>W)return;
+  const midX=(bx+ex)/2;
+  const arrowY=H*0.18-24;
+  cx.fillStyle='#378ADD';cx.font='bold 11px sans-serif';cx.textAlign='center';
+  cx.fillText('▼ Aquí están las microondas — y dentro de ellas, el Wi-Fi',midX,arrowY);
+}
+
+function frame(){
+  t+=0.016;
+  lerpZoom();
+  sz();
+  cx.fillStyle=BG;cx.fillRect(0,0,W,H);
+  cx.strokeStyle=GR;cx.lineWidth=1;
+  for(let x=0;x<W;x+=28){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+  for(let y=0;y<H;y+=28){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+  drawSpectrumBar();
+  if(zoom!=='full')drawMicroDetail();
+  drawMicroLabel();
+  drawWiFiCards();
+  animId=requestAnimationFrame(frame);
+}
+
+function setZoom(z){
+  zoom=z;
+  targetZoom={...ZOOMS[z]};
+  zoomT=0;
+  document.querySelectorAll('[id^=z-]').forEach(b=>b.classList.remove('zact'));
+  document.getElementById('z-'+z).classList.add('zact');
+}
+
+function h2rgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];}
+
+if(cx.roundRect===undefined){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.beginPath();this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);
+    this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);
+    this.arcTo(x,y,x+w,y,r);this.closePath();
+  };
+}
+sz();requestAnimationFrame(frame);
+})();
+</script>

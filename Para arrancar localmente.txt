@@ -1,0 +1,104 @@
+cp .env.example .env
+make up              # levanta todos los servicios
+make migrate         # crea tablas
+make seed            # admin@demo.com / Demo1234! + 16 modelos de AP
+# → http://localhost:3000
+
+Frontend: http://localhost:3000
+2
+FastAPI: http://localhost:8000/docs
+3
+MinIO: http://localhost:9001
+docker compose up -d
+
+
+docker compose exec backend python -m app.seeds.run
+Flujo funcional
+
+
+# Detener y reconstruir todos los servicios con cambios
+docker compose up -d --force-recreate --build
+
+# O solo el backend y worker (si solo cambiaste código Python)
+docker compose up -d --force-recreate --build backend worker
+
+Verificar que todo funciona
+
+# 1. Ver logs del backend
+
+
+# 2. Ver logs del worker
+docker compose logs --tail=30 worker
+
+# 3. Probar health check
+curl http://localhost:8000/health
+
+# 4. Ver estado de los contenedores
+docker compose ps
+
+docker compose up -d --force-recreate --build backend
+docker compose logs -f backend
+Reconstruir después de los cambios
+Dashboard
+   ↓
+Crear proyecto
+   ↓
+Crear edificio
+   ↓
+Crear piso
+   ↓
+Cargar plano
+   ↓
+Calibrar escala
+   ↓
+Revisar paredes detectadas
+   ↓
+Colocar puntos de acceso
+   ↓
+Ejecutar simulación RF
+   ↓
+Generar reporte JSON
+
+
+Servicio	URL	Credenciales
+Frontend	http://localhost:3000	admin@demo.com / Demo1234!
+API Docs	http://localhost:8000/docs	(Swagger)
+MinIO Console	http://localhost:9001	minioadmin / minioadmin
+MinIO API	http://localhost:9000	minioadmin / minioadmin
+
+Comandos útiles para monitorear:
+# Ver logs en tiempo real
+docker compose logs -f
+
+# Ver logs del backend
+docker compose logs backend
+
+# Ver logs del worker
+docker compose logs worker
+
+# Ver estado de los servicios
+docker compose psc
+
+# Reconstruye el frontend
+docker compose up -d --force-recreate --build frontend
+
+# Ver los logs para confirmar que ya no hay error
+docker compose logs -f frontend
+
+Estructura de archivos a crear/modificar
+
+backend/app/
+├── services/
+│   ├── __init__.py
+│   ├── parser_base.py      # [NUEVO] Abstract base class
+│   ├── raster_parser.py    # [NUEVO] PNG/JPG/PDF → estructura común
+│   ├── vector_parser.py    # [NUEVO] DXF → estructura común
+│   └── factory.py          # [NUEVO] Detecta formato y devuelve parser
+├── schemas/
+│   └── floor_analysis.py   # [MODIFICAR] Añadir campos para fuente y confianza
+├── models/
+│   └── geometry.py         # [MODIFICAR] Añadir campos source_type y confidence
+├── api/v1/
+│   └── floors.py           # [MODIFICAR] Endpoint de carga
+└── workers/
+    └── tasks.py            # [MODIFICAR] Tarea de análisis

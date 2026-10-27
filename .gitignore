@@ -1,0 +1,27 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node and generated frontend output
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Databases and generated artifacts
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+dist/
+build/

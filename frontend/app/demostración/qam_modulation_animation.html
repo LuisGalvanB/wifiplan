@@ -1,0 +1,262 @@
+
+<h2 class="sr-only">Animación QAM: cómo se codifican bits en amplitud y fase de una onda portadora</h2>
+<canvas id="cv" style="width:100%;display:block;border-radius:10px;"></canvas>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;">
+  <button onclick="setQAM(4)"  id="b4">  BPSK (1 bit)</button>
+  <button onclick="setQAM(16)" id="b16"> 16-QAM (4 bits)</button>
+  <button onclick="setQAM(64)" id="b64"> 64-QAM (6 bits)</button>
+  <button onclick="setQAM(256)"id="b256">256-QAM (8 bits)</button>
+  <button onclick="setQAM(1024)"id="b1024" style="border-color:#7F77DD;color:#534AB7;">1024-QAM Wi-Fi 6</button>
+  <button onclick="toggleNoise()" id="bnoise" style="margin-left:auto;">+ Ruido SNR bajo</button>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;">
+  <div style="background:var(--color-background-secondary);border-radius:8px;padding:8px 10px;">
+    <div style="font-size:11px;color:var(--color-text-secondary);">Orden QAM</div>
+    <div id="st-order" style="font-size:17px;font-weight:500;color:var(--color-text-primary);">16-QAM</div>
+  </div>
+  <div style="background:var(--color-background-secondary);border-radius:8px;padding:8px 10px;">
+    <div style="font-size:11px;color:var(--color-text-secondary);">Bits por símbolo</div>
+    <div id="st-bits" style="font-size:17px;font-weight:500;color:#378ADD;">4 bits</div>
+  </div>
+  <div style="background:var(--color-background-secondary);border-radius:8px;padding:8px 10px;">
+    <div style="font-size:11px;color:var(--color-text-secondary);">SNR mínimo</div>
+    <div id="st-snr" style="font-size:17px;font-weight:500;color:#1D9E75;">15 dB</div>
+  </div>
+  <div style="background:var(--color-background-secondary);border-radius:8px;padding:8px 10px;">
+    <div style="font-size:11px;color:var(--color-text-secondary);">Estándar Wi-Fi</div>
+    <div id="st-std" style="font-size:17px;font-weight:500;color:var(--color-text-primary);">802.11n/ac</div>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const cx = cv.getContext('2d');
+const DPR = window.devicePixelRatio||1;
+const W=680,H=420;
+cv.width=W*DPR; cv.height=H*DPR; cx.scale(DPR,DPR);
+const dark = matchMedia('(prefers-color-scheme:dark)').matches;
+const BG   = dark?'#141824':'#f5f7ff';
+const GRID = dark?'rgba(255,255,255,0.06)':'rgba(0,0,120,0.06)';
+const AX   = dark?'rgba(255,255,255,0.18)':'rgba(0,0,80,0.2)';
+const TXT  = dark?'#ccc':'#334';
+const TXTS = dark?'#888':'#778';
+
+const QINFO={
+  4:  {label:'BPSK',    bps:1,snr:6,  std:'802.11b',    col:'#5DCAA5'},
+  16: {label:'16-QAM',  bps:4,snr:15, std:'802.11n/ac', col:'#378ADD'},
+  64: {label:'64-QAM',  bps:6,snr:22, std:'802.11ac',   col:'#7F77DD'},
+  256:{label:'256-QAM', bps:8,snr:28, std:'802.11ac W2',col:'#EF9F27'},
+  1024:{label:'1024-QAM',bps:10,snr:35,std:'802.11ax Wi-Fi 6',col:'#D85A30'},
+};
+
+let order=16, noise=false, t=0, activeIdx=0, symbolTimer=0;
+
+function constellationPoints(n){
+  if(n===4) return [{i:0,q:0},{i:1,q:0},{i:0,q:1},{i:1,q:1}].map(p=>({
+    x:(p.i*2-1)*0.7, y:(p.q*2-1)*0.7,
+    bits: String(p.i*2+p.q).padStart(1,'0')
+  }));
+  const side=Math.sqrt(n);
+  const pts=[];
+  for(let r=0;r<side;r++) for(let c=0;c<side;c++){
+    const x=(-side+1+2*c)/(side-1);
+    const y=(-side+1+2*r)/(side-1);
+    pts.push({x,y,bits:(r*side+c).toString(2).padStart(Math.log2(n),'0').slice(0,4)+'…'});
+  }
+  return pts;
+}
+
+// Left panel: constellation
+const CP={x:175,y:200,r:150};
+// Right panel: waveform
+const WP={x:440,y:80,w:220,h:260};
+
+function hexRGB(h){
+  return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+}
+
+function drawBG(){
+  cx.fillStyle=BG; cx.fillRect(0,0,W,H);
+  cx.strokeStyle=GRID; cx.lineWidth=1;
+  for(let x=0;x<W;x+=30){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+  for(let y=0;y<H;y+=30){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+}
+
+function drawConstellation(){
+  const info=QINFO[order];
+  const pts=constellationPoints(order);
+  const scale=order<=16?0.88:order===64?0.82:order===256?0.76:0.68;
+  const nr=noise?0.06+(order>=256?0.05:0)*1.5:0;
+
+  // axes
+  cx.strokeStyle=AX; cx.lineWidth=1;
+  cx.beginPath();cx.moveTo(CP.x-CP.r,CP.y);cx.lineTo(CP.x+CP.r,CP.y);cx.stroke();
+  cx.beginPath();cx.moveTo(CP.x,CP.y-CP.r);cx.lineTo(CP.x,CP.y+CP.r);cx.stroke();
+
+  // axis labels
+  cx.fillStyle=TXTS; cx.font='11px sans-serif'; cx.textAlign='center';
+  cx.fillText('I (In-phase)',CP.x,CP.y+CP.r+16);
+  cx.save(); cx.translate(CP.x-CP.r-14,CP.y); cx.rotate(-Math.PI/2);
+  cx.fillText('Q (Quadrature)',0,0); cx.restore();
+
+  // title
+  cx.fillStyle=info.col; cx.font='bold 14px sans-serif'; cx.textAlign='center';
+  cx.fillText(info.label+' — Diagrama de constelación',CP.x,22);
+  cx.fillStyle=TXTS; cx.font='11px sans-serif';
+  cx.fillText(Math.log2(order)+' bits por símbolo  ·  '+Math.sqrt(order<=4?2:order)+'×'+Math.sqrt(order<=4?2:order)+' puntos',CP.x,38);
+
+  // draw points
+  const dotR = order<=16?7:order===64?5:order===256?3.5:2.5;
+  pts.forEach((p,i)=>{
+    const nx=CP.x+p.x*CP.r*scale+(noise?(Math.random()-0.5)*nr*CP.r*2:0);
+    const ny=CP.y+p.y*CP.r*scale+(noise?(Math.random()-0.5)*nr*CP.r*2:0);
+    const isActive=i===activeIdx;
+    const [r,g,b]=hexRGB(info.col);
+    cx.beginPath(); cx.arc(nx,ny,isActive?dotR+3:dotR,0,Math.PI*2);
+    cx.fillStyle=isActive?`rgb(${r},${g},${b})`:`rgba(${r},${g},${b},0.55)`;
+    cx.fill();
+    if(isActive){
+      cx.strokeStyle=`rgba(${r},${g},${b},0.3)`;
+      cx.lineWidth=2;
+      cx.beginPath(); cx.arc(nx,ny,dotR+8,0,Math.PI*2); cx.stroke();
+      // vector from origin
+      cx.strokeStyle=`rgba(${r},${g},${b},0.7)`;
+      cx.lineWidth=1.5;
+      cx.beginPath(); cx.moveTo(CP.x,CP.y); cx.lineTo(nx,ny); cx.stroke();
+    }
+  });
+
+  // current bits label
+  const ap=pts[activeIdx];
+  cx.fillStyle=info.col; cx.font='bold 12px sans-serif'; cx.textAlign='center';
+  cx.fillText('Símbolo actual: '+ap.bits,CP.x,H-18);
+}
+
+function drawWaveform(){
+  const info=QINFO[order];
+  const pts=constellationPoints(order);
+  const ap=pts[activeIdx];
+  const [r,g,b]=hexRGB(info.col);
+
+  // panel bg
+  cx.fillStyle=dark?'rgba(255,255,255,0.03)':'rgba(0,0,80,0.03)';
+  cx.strokeStyle=AX; cx.lineWidth=0.5;
+  cx.beginPath(); cx.roundRect(WP.x,WP.y,WP.w,WP.h,6); cx.fill(); cx.stroke();
+
+  const mx=WP.x+WP.w/2, my=WP.y+WP.h/2;
+  const amp=ap.y*0.38*WP.h/2+WP.h*0.38;
+  const freq=1+Math.abs(ap.x)*2;
+  const phase=ap.x*Math.PI;
+
+  // carrier axis
+  cx.strokeStyle=AX; cx.lineWidth=0.5;
+  cx.beginPath(); cx.moveTo(WP.x+10,my); cx.lineTo(WP.x+WP.w-10,my); cx.stroke();
+
+  // wave
+  cx.beginPath();
+  for(let px=0;px<=WP.w-20;px+=2){
+    const norm=px/(WP.w-20);
+    const wy=my-amp*Math.sin(freq*Math.PI*2*norm+phase-t*3);
+    if(px===0) cx.moveTo(WP.x+10+px,wy);
+    else cx.lineTo(WP.x+10+px,wy);
+  }
+  cx.strokeStyle=`rgba(${r},${g},${b},0.9)`;
+  cx.lineWidth=2.5; cx.stroke();
+
+  // labels
+  cx.fillStyle=TXT; cx.font='500 12px sans-serif'; cx.textAlign='left';
+  cx.fillText('Amplitud:',WP.x+8,WP.y+18);
+  cx.fillStyle=info.col;
+  cx.fillText((ap.y>=0?'+':'')+ap.y.toFixed(2),WP.x+74,WP.y+18);
+
+  cx.fillStyle=TXT;
+  cx.fillText('Fase:',WP.x+8,WP.y+34);
+  cx.fillStyle=info.col;
+  cx.fillText((ap.x>=0?'+':'')+ap.x.toFixed(2)+'π',WP.x+74,WP.y+34);
+
+  cx.fillStyle=info.col; cx.font='bold 11px sans-serif'; cx.textAlign='center';
+  cx.fillText('Onda portadora modulada',mx,WP.y-8);
+
+  // bits visual
+  const bstr=(activeIdx).toString(2).padStart(Math.log2(order),'0');
+  const bw=14, bstart=WP.x+(WP.w-bstr.length*bw)/2;
+  cx.fillStyle=TXT; cx.font='11px sans-serif'; cx.textAlign='center';
+  cx.fillText('Bits codificados:',mx,WP.y+WP.h+20);
+  bstr.split('').forEach((b,i)=>{
+    const bx=bstart+i*bw;
+    cx.fillStyle=b==='1'?info.col:(dark?'rgba(255,255,255,0.15)':'rgba(0,0,80,0.12)');
+    cx.beginPath(); cx.roundRect(bx,WP.y+WP.h+26,bw-2,16,3); cx.fill();
+    cx.fillStyle=b==='1'?(dark?'#fff':'#fff'):TXTS;
+    cx.font='bold 10px sans-serif'; cx.textAlign='center';
+    cx.fillText(b,bx+bw/2-1,WP.y+WP.h+38);
+  });
+
+  // SNR bar
+  const snrY=WP.y+WP.h+62;
+  cx.fillStyle=TXT; cx.font='11px sans-serif'; cx.textAlign='left';
+  cx.fillText('SNR mínimo requerido:',WP.x+8,snrY);
+  const snrPct=info.snr/40;
+  const barW=WP.w-16;
+  cx.fillStyle=dark?'rgba(255,255,255,0.1)':'rgba(0,0,80,0.08)';
+  cx.beginPath(); cx.roundRect(WP.x+8,snrY+6,barW,8,4); cx.fill();
+  cx.fillStyle=info.snr<20?'#1D9E75':info.snr<28?'#EF9F27':'#E24B4A';
+  cx.beginPath(); cx.roundRect(WP.x+8,snrY+6,barW*snrPct,8,4); cx.fill();
+  cx.fillStyle=info.col; cx.font='bold 11px sans-serif'; cx.textAlign='right';
+  cx.fillText(info.snr+' dB',WP.x+WP.w-8,snrY);
+
+  // comparison row
+  const cy2=snrY+30;
+  cx.fillStyle=TXTS; cx.font='10px sans-serif'; cx.textAlign='center';
+  cx.fillText('Progresión de Wi-Fi:',mx,cy2);
+  const orders=[4,16,64,256,1024];
+  const labels=['BPSK','16','64','256','1024'];
+  const cols=['#5DCAA5','#378ADD','#7F77DD','#EF9F27','#D85A30'];
+  orders.forEach((o,i)=>{
+    const bx=WP.x+10+i*(WP.w-20)/4*0.99;
+    const active=o===order;
+    cx.fillStyle=active?cols[i]:(dark?'rgba(255,255,255,0.2)':'rgba(0,0,80,0.15)');
+    cx.beginPath(); cx.arc(bx,cy2+14,active?7:5,0,Math.PI*2); cx.fill();
+    cx.fillStyle=active?cols[i]:TXTS;
+    cx.font=(active?'bold ':'')+'9px sans-serif'; cx.textAlign='center';
+    cx.fillText(labels[i],bx,cy2+28);
+  });
+}
+
+function frame(){
+  t+=0.016;
+  symbolTimer+=0.016;
+  if(symbolTimer>1.2){
+    symbolTimer=0;
+    activeIdx=(activeIdx+1)%constellationPoints(order).length;
+  }
+  drawBG(); drawConstellation(); drawWaveform();
+  requestAnimationFrame(frame);
+}
+
+function setQAM(n){
+  order=n; activeIdx=0;
+  const info=QINFO[n];
+  document.getElementById('st-order').textContent=info.label;
+  document.getElementById('st-bits').textContent=info.bps+' bits';
+  document.getElementById('st-snr').textContent=info.snr+' dB';
+  document.getElementById('st-std').textContent=info.std;
+  document.getElementById('st-snr').style.color=info.snr<20?'#1D9E75':info.snr<28?'#EF9F27':'#E24B4A';
+  [4,16,64,256,1024].forEach(o=>{
+    const b=document.getElementById('b'+o);
+    if(b) b.style.fontWeight=o===n?'700':'400';
+  });
+}
+function toggleNoise(){
+  noise=!noise;
+  document.getElementById('bnoise').textContent=noise?'- Quitar ruido':'+ Ruido SNR bajo';
+}
+if(cv.getContext('2d').roundRect===undefined){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.beginPath();this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);
+    this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();
+  };
+}
+setQAM(16);
+frame();
+</script>

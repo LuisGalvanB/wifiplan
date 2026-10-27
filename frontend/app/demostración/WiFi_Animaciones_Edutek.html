@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transmisión Wi-Fi — Animaciones Interactivas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg:       #0A0F1E;
+    --bg2:      #0F1628;
+    --bg3:      #141E35;
+    --card:     #111827;
+    --border:   rgba(255,255,255,0.07);
+    --border2:  rgba(255,255,255,0.12);
+    --text:     #E2E8F0;
+    --muted:    #64748B;
+    --cyan:     #00B4D8;
+    --blue:     #378ADD;
+    --teal:     #1D9E75;
+    --purple:   #7F77DD;
+    --amber:    #EF9F27;
+    --coral:    #D85A30;
+    --red:      #E24B4A;
+    --green:    #5DCAA5;
+    --font:     'Inter', sans-serif;
+    --mono:     'JetBrains Mono', monospace;
+    --radius:   10px;
+    --radius-lg:16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* NAV */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,15,30,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 56px;
+  }
+  .nav-logo {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cyan);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-right: 2rem;
+    white-space: nowrap;
+  }
+  .nav-links {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-link {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    white-space: nowrap;
+    transition: color 0.15s, background 0.15s;
+  }
+  .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .nav-link.active { color: var(--cyan); background: rgba(0,180,216,0.1); }
+
+  /* HERO */
+  .hero {
+    padding: 4rem 2rem 3rem;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .hero-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 1rem;
+  }
+  .hero h1 {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 600;
+    line-height: 1.2;
+    color: #fff;
+    margin-bottom: 1rem;
+  }
+  .hero h1 span { color: var(--cyan); }
+  .hero p {
+    font-size: 15px;
+    color: var(--muted);
+    max-width: 580px;
+    margin: 0 auto;
+  }
+  .hero-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1.5rem;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+  }
+
+  /* SECTIONS */
+  .section {
+    max-width: 960px;
+    margin: 0 auto 4rem;
+    padding: 0 1.5rem;
+    scroll-margin-top: 72px;
+  }
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--cyan);
+    background: rgba(0,180,216,0.1);
+    border: 1px solid rgba(0,180,216,0.2);
+    border-radius: 6px;
+    padding: 3px 8px;
+    margin-top: 3px;
+    white-space: nowrap;
+  }
+  .section-title { font-size: 1.4rem; font-weight: 600; color: #fff; }
+  .section-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+  /* CANVAS CARD */
+  .canvas-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .canvas-wrap {
+    padding: 1rem 1rem 0.5rem;
+    background: var(--bg2);
+  }
+  canvas { display: block; width: 100%; border-radius: var(--radius); }
+
+  /* CONTROLS */
+  .controls {
+    padding: 0.75rem 1rem;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-top: 1px solid var(--border);
+  }
+  .btn {
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+  .btn.active { background: rgba(0,180,216,0.15); border-color: rgba(0,180,216,0.4); color: var(--cyan); }
+  .btn.danger { border-color: rgba(226,75,74,0.4); color: #E24B4A; }
+  .btn.danger:hover { background: rgba(226,75,74,0.1); }
+  .btn.accent { border-color: rgba(127,119,221,0.4); color: var(--purple); }
+
+  /* STATS ROW */
+  .stats {
+    display: grid;
+    gap: 8px;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .stats.cols-4 { grid-template-columns: repeat(4,1fr); }
+  .stats.cols-5 { grid-template-columns: repeat(5,1fr); }
+  .stat {
+    background: var(--bg3);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+  }
+  .stat-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .stat-val { font-size: 15px; font-weight: 600; color: var(--text); font-family: var(--mono); }
+
+  /* STATUS BADGE */
+  .status-badge {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* CONCEPT CARDS */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 1rem;
+  }
+  .concept-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .concept-card h4 { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .concept-card p { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 0 0 3rem; }
+
+  @media (max-width: 600px) {
+    .stats.cols-4 { grid-template-columns: repeat(2,1fr); }
+    .stats.cols-5 { grid-template-columns: repeat(2,1fr); }
+    .hero { padding: 2rem 1rem 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Wi-Fi Lab</div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="scrollTo('s1',this)">01 — QAM</button>
+    <button class="nav-link" onclick="scrollTo('s2',this)">02 — OFDM</button>
+    <button class="nav-link" onclick="scrollTo('s3',this)">03 — CSMA/CA</button>
+    <button class="nav-link" onclick="scrollTo('s4',this)">04 — Viaje del dato</button>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Edutek Latam · CCNA SRWE Módulos 12–13</div>
+  <h1>Cómo viaja la información<br><span>a través de las ondas Wi-Fi</span></h1>
+  <p>Cuatro animaciones interactivas para comprender la modulación, codificación y acceso al medio en redes inalámbricas.</p>
+  <div class="hero-tags">
+    <span class="tag">802.11ax Wi-Fi 6</span>
+    <span class="tag">QAM · OFDM · OFDMA</span>
+    <span class="tag">CSMA/CA</span>
+    <span class="tag">Capas OSI</span>
+    <span class="tag">CCNA 200-301</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 1 — QAM -->
+<section class="section" id="s1">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <div>
+      <div class="section-title">Modulación QAM</div>
+      <div class="section-sub">Cómo se codifican bits en amplitud y fase de una onda portadora</div>
+    </div>
+  </div>
+  <div class="canvas-card">
+    <div class="canvas-wrap">
+      <canvas id="cv1" height="380"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="setQAM(4)"   id="b4">BPSK (1 bit)</button>
+      <button class="btn active" onclick="setQAM(16)"  id="b16">16-QAM (4 bits)</button>
+      <button class="btn" onclick="setQAM(64)"  id="b64">64-QAM (6 bits)</button>
+      <button class="btn" onclick="setQAM(256)" id="b256">256-QAM (8 bits)</button>
+      <button class="btn accent" onclick="setQAM(1024)" id="b1024">1024-QAM · Wi-Fi 6</button>
+      <button class="btn danger" onclick="toggleNoise()" id="bnoise" style="margin-left:auto;">+ Ruido</button>
+    </div>
+    <div class="stats cols-4">
+      <div class="stat"><div class="stat-label">Orden QAM</div><div class="stat-val" id="st-order" style="color:var(--blue)">16-QAM</div></div>
+      <div class="stat"><div class="stat-label">Bits por símbolo</div><div class="stat-val" id="st-bits" style="color:var(--cyan)">4 bits</div></div>
+      <div class="stat"><div class="stat-label">SNR mínimo</div><div class="stat-val" id="st-snr" style="color:var(--teal)">15 dB</div></div>
+      <div class="stat"><div class="stat-label">Estándar Wi-Fi</div><div class="stat-val" id="st-std" style="color:var(--muted)">802.11n/ac</div></div>
+    </div>
+  </div>
+  <div class="concept-grid">
+    <div class="concept-card"><h4 style="color:var(--cyan)">¿Qué es QAM?</h4><p>Quadrature Amplitude Modulation combina dos señales ortogonales (I y Q). Cada punto en la constelación representa un conjunto de bits único.</p></div>
+    <div class="concept-card"><h4 style="color:var(--blue)">Más bits = más velocidad</h4><p>1024-QAM codifica 10 bits por símbolo vs 1 de BPSK. A mayor orden, mayor throughput pero mayor sensibilidad al ruido (SNR).</p></div>
+    <div class="concept-card"><h4 style="color:var(--amber)">SNR y rendimiento real</h4><p>Wi-Fi 6 usa 1024-QAM solo cuando el SNR supera 35 dB. Con señal débil, el AP baja automáticamente a 64-QAM o menos (Rate Adaptation).</p></div>
+    <div class="concept-card"><h4 style="color:var(--teal)">En el examen CCNA</h4><p>Pregunta frecuente: ¿qué modulación usa 802.11ac? R: 256-QAM. ¿Y Wi-Fi 6? R: 1024-QAM. Recuerda la progresión de estándares.</p></div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════ SECTION 2 — OFDM -->
+<section class="section" id="s2">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <div>
+      <div class="section-title">OFDM y OFDMA</div>
+      <div class="section-sub">Sub-portadoras ortogonales — la base técnica de Wi-Fi moderno</div>
+    </div>
+  </div>
+  <div class="canvas-card">
+    <div class="canvas-wrap">
+      <canvas id="cv2" height="420"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="setOFDMView('single')" id="vs">Portadora única</button>
+      <button class="btn active" onclick="setOFDMView('ofdm')" id="vo">OFDM multi sub-portadora</button>
+      <button class="btn accent" onclick="setOFDMView('ofdma')" id="voa">OFDMA — Wi-Fi 6</button>
+      <button class="btn" onclick="toggleCP()" id="bcp" style="margin-left:auto;">Ver Cyclic Prefix</button>
+    </div>
+    <div class="stats cols-4">
+      <div class="stat"><div class="stat-label">Modo</div><div class="stat-val" id="o-mode" style="color:var(--blue)">OFDM</div></div>
+      <div class="stat"><div class="stat-label">Sub-portadoras</div><div class="stat-val" id="o-subs" style="color:var(--cyan)">52–256</div></div>
+      <div class="stat"><div class="stat-label">Eficiencia espectral</div><div class="stat-val" id="o-eff" style="color:var(--teal)">Alta</div></div>
+      <div class="stat"><div class="stat-label">Resist. multipath</div><div class="stat-val" id="o-mp" style="color:var(--teal)">Muy alta</div></div>
+    </div>
+  </div>
+  <div class="concept-grid">
+    <div class="concept-card"><h4 style="color:var(--cyan)">Ortogonalidad</h4><p>El pico de cada sub-portadora coincide con el cruce por cero de todas las demás. Resultado: cero interferencia entre sub-portadoras (ICI = 0).</p></div>
+    <div class="concept-card"><h4 style="color:var(--blue)">Cyclic Prefix (CP)</h4><p>Copia del final del símbolo OFDM pegada al inicio. Absorbe el retardo de multipath sin corromper el símbolo principal.</p></div>
+    <div class="concept-card"><h4 style="color:var(--purple)">OFDMA en Wi-Fi 6</h4><p>Wi-Fi 5 asignaba todo el canal a un cliente. Wi-Fi 6 con OFDMA divide el canal en Resource Units (RUs) y atiende varios clientes simultáneamente.</p></div>
+    <div class="concept-card"><h4 style="color:var(--amber)">Canales en 802.11ax</h4><p>Wi-Fi 6 usa canales de 20/40/80/160 MHz con 256/512/1024/2048 sub-portadoras respectivamente. Wi-Fi 6E añade banda de 6 GHz.</p></div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════ SECTION 3 — CSMA/CA -->
+<section class="section" id="s3">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <div>
+      <div class="section-title">CSMA/CA — Acceso al medio</div>
+      <div class="section-sub">Escucha antes de hablar · Backoff aleatorio · ACK de confirmación</div>
+    </div>
+  </div>
+  <div class="canvas-card">
+    <div class="canvas-wrap">
+      <canvas id="cv3" height="380"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="resetCSMA()">↺ Reiniciar</button>
+      <button class="btn" onclick="addCSMADev()">+ Dispositivo</button>
+      <button class="btn danger" onclick="forceCSMACollision()">Forzar colisión</button>
+      <span class="status-badge" id="ch-status">Canal: Libre</span>
+    </div>
+    <div class="stats cols-4">
+      <div class="stat"><div class="stat-label">Tramas OK</div><div class="stat-val" id="cs-s" style="color:var(--teal)">0</div></div>
+      <div class="stat"><div class="stat-label">Colisiones</div><div class="stat-val" id="cs-c" style="color:var(--red)">0</div></div>
+      <div class="stat"><div class="stat-label">ACKs recibidos</div><div class="stat-val" id="cs-a" style="color:var(--blue)">0</div></div>
+      <div class="stat"><div class="stat-label">Dispositivos</div><div class="stat-val" id="cs-d" style="color:var(--text)">3</div></div>
+    </div>
+  </div>
+  <div class="concept-grid">
+    <div class="concept-card"><h4 style="color:var(--cyan)">El proceso completo</h4><p>1) Escuchar canal (DIFS) → 2) Si libre: backoff aleatorio → 3) Transmitir → 4) Esperar ACK. Sin ACK en tiempo → retransmitir.</p></div>
+    <div class="concept-card"><h4 style="color:var(--amber)">Exponential Backoff</h4><p>Tras colisión, la ventana de contención se duplica (8→16→32→64 slots). Reduce probabilidad de colisión repetida entre los mismos nodos.</p></div>
+    <div class="concept-card"><h4 style="color:var(--red)">Por qué no CSMA/CD</h4><p>En wireless es imposible detectar colisión mientras se transmite (half-duplex RF). Por eso Wi-Fi evita colisiones (CA) en lugar de detectarlas (CD como Ethernet).</p></div>
+    <div class="concept-card"><h4 style="color:var(--teal)">DIFS y SIFS</div><p>DIFS (Distributed IFS): tiempo de espera antes de transmitir. SIFS (Short IFS): tiempo de espera antes de enviar ACK. SIFS &lt; DIFS para dar prioridad a ACKs.</p></div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════ SECTION 4 — VIAJE DATO -->
+<section class="section" id="s4">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <div>
+      <div class="section-title">Viaje completo de un dato</div>
+      <div class="section-sub">Del teclado al cliente Wi-Fi · Encapsulación OSI · Modulación RF</div>
+    </div>
+  </div>
+  <div class="canvas-card">
+    <div class="canvas-wrap">
+      <canvas id="cv4" height="440"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn active" onclick="startJourney()" id="bjstart">▶ Enviar dato</button>
+      <button class="btn" onclick="setJSpeed(0.4)">Paso a paso</button>
+      <button class="btn" onclick="setJSpeed(1)">Normal</button>
+      <button class="btn" onclick="setJSpeed(2.5)">Rápido</button>
+      <span class="status-badge" id="j-phase">Listo para enviar</span>
+    </div>
+    <div class="stats cols-5">
+      <div class="stat"><div class="stat-label">Fase</div><div class="stat-val" id="jst-phase" style="color:var(--cyan); font-size:11px;">—</div></div>
+      <div class="stat"><div class="stat-label">Capa OSI</div><div class="stat-val" id="jst-layer" style="color:var(--blue); font-size:11px;">—</div></div>
+      <div class="stat"><div class="stat-label">PDU</div><div class="stat-val" id="jst-pdu" style="color:var(--purple); font-size:11px;">—</div></div>
+      <div class="stat"><div class="stat-label">Protocolo</div><div class="stat-val" id="jst-proto" style="color:var(--teal); font-size:11px;">—</div></div>
+      <div class="stat"><div class="stat-label">Modulación</div><div class="stat-val" id="jst-mod" style="color:var(--amber); font-size:11px;">—</div></div>
+    </div>
+  </div>
+  <div class="concept-grid">
+    <div class="concept-card"><h4 style="color:var(--cyan)">Encapsulación</h4><p>Cada capa agrega su cabecera. El dato original queda envuelto como una muñeca rusa. Al recibir, cada capa desenvuelve su parte.</p></div>
+    <div class="concept-card"><h4 style="color:var(--blue)">Trama 802.11</h4><p>La capa MAC agrega BSSID, MAC origen/destino, número de secuencia, y Frame Check Sequence (FCS) para detección de errores.</p></div>
+    <div class="concept-card"><h4 style="color:var(--amber)">PHY → RF</h4><p>Los bits pasan por el codificador convolucional, el interleaver, la IFFT (OFDM), el convertidor D/A y finalmente la antena irradiando a 2.4/5/6 GHz.</p></div>
+    <div class="concept-card"><h4 style="color:var(--teal)">El viaje de vuelta</h4><p>El cliente recibe la señal RF, el ADC digitaliza, FFT recupera los símbolos OFDM, el demodulador QAM extrae bits, y las capas se desenrollan hasta la app.</p></div>
+  </div>
+</section>
+
+<footer style="text-align:center; padding:2rem; color:var(--muted); font-size:12px; border-top:1px solid var(--border);">
+  Edutek Latam · Guatemala 2026 · edutek.edu.gt &nbsp;·&nbsp; CCNA SRWE Módulos 12–13
+</footer>
+
+<script>
+function scrollTo(id, btn) {
+  document.getElementById(id).scrollIntoView({behavior:'smooth'});
+  document.querySelectorAll('.nav-link').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ─── SHARED UTILS ────────────────────────────────────────────────────────────
+function hexRGB(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CANVAS SETUP HELPER
+// ═══════════════════════════════════════════════════════════════════════════
+function setupCanvas(id) {
+  const cv = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.offsetWidth || 900;
+  const H = parseInt(cv.getAttribute('height')) || 380;
+  cv.width = W * dpr; cv.height = H * dpr;
+  cv.style.height = H + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return {cv, ctx, W, H, dpr};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANIMATION 1 — QAM
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  const {ctx:cx, W, H} = setupCanvas('cv1');
+  const QINFO={
+    4:  {label:'BPSK',     bps:1, snr:6,  std:'802.11b',       col:'#5DCAA5'},
+    16: {label:'16-QAM',   bps:4, snr:15, std:'802.11n/ac',    col:'#378ADD'},
+    64: {label:'64-QAM',   bps:6, snr:22, std:'802.11ac',      col:'#7F77DD'},
+    256:{label:'256-QAM',  bps:8, snr:28, std:'802.11ac W2',   col:'#EF9F27'},
+    1024:{label:'1024-QAM',bps:10,snr:35, std:'802.11ax Wi-Fi 6',col:'#D85A30'},
+  };
+  let order=16, noise=false, t=0, activeIdx=0, symTimer=0;
+
+  function constellationPoints(n){
+    if(n===4) return [{x:-0.7,y:-0.7,bits:'00'},{x:0.7,y:-0.7,bits:'01'},{x:-0.7,y:0.7,bits:'10'},{x:0.7,y:0.7,bits:'11'}];
+    const side=Math.sqrt(n), pts=[];
+    for(let r=0;r<side;r++) for(let c=0;c<side;c++){
+      pts.push({x:(-side+1+2*c)/(side-1),y:(-side+1+2*r)/(side-1),bits:(r*side+c).toString(2).padStart(Math.log2(n),'0').slice(0,6)});
+    }
+    return pts;
+  }
+
+  const CP={x:185,y:H/2+10,r:155};
+  const WP={x:CP.x+CP.r+30,y:50,w:W-CP.x-CP.r-60,h:240};
+
+  function frame(){
+    t+=0.016; symTimer+=0.016;
+    if(symTimer>1.1){symTimer=0; activeIdx=(activeIdx+1)%constellationPoints(order).length;}
+    cx.fillStyle='#0A0F1E'; cx.fillRect(0,0,W,H);
+    cx.strokeStyle='rgba(255,255,255,0.04)'; cx.lineWidth=1;
+    for(let x=0;x<W;x+=30){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+    for(let y=0;y<H;y+=30){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+
+    const info=QINFO[order], pts=constellationPoints(order);
+    const scale=order<=16?0.88:order===64?0.82:order===256?0.76:0.68;
+    const [ir,ig,ib]=hexRGB(info.col);
+
+    // axes
+    cx.strokeStyle='rgba(255,255,255,0.15)'; cx.lineWidth=1;
+    cx.beginPath();cx.moveTo(CP.x-CP.r,CP.y);cx.lineTo(CP.x+CP.r,CP.y);cx.stroke();
+    cx.beginPath();cx.moveTo(CP.x,CP.y-CP.r);cx.lineTo(CP.x,CP.y+CP.r);cx.stroke();
+
+    cx.fillStyle='rgba(255,255,255,0.4)'; cx.font='11px Inter,sans-serif'; cx.textAlign='center';
+    cx.fillText('I (In-phase)',CP.x,CP.y+CP.r+16);
+    cx.save();cx.translate(CP.x-CP.r-14,CP.y);cx.rotate(-Math.PI/2);cx.fillText('Q (Quadrature)',0,0);cx.restore();
+
+    cx.fillStyle=info.col; cx.font='bold 13px Inter,sans-serif'; cx.textAlign='center';
+    cx.fillText(info.label+' — Diagrama de constelación',CP.x,22);
+    cx.fillStyle='rgba(255,255,255,0.35)'; cx.font='11px Inter,sans-serif';
+    cx.fillText(Math.log2(order)+' bits/símbolo · '+Math.sqrt(order<=4?2:order)+'×'+Math.sqrt(order<=4?2:order)+' puntos',CP.x,38);
+
+    const dotR=order<=16?7:order===64?5:order===256?3.5:2.5;
+    const nr=noise?0.055+(order>=256?0.04:0):0;
+    pts.forEach((p,i)=>{
+      const nx=CP.x+p.x*CP.r*scale+(nr?(Math.random()-.5)*nr*CP.r*2.2:0);
+      const ny=CP.y+p.y*CP.r*scale+(nr?(Math.random()-.5)*nr*CP.r*2.2:0);
+      const isA=i===activeIdx;
+      cx.beginPath();cx.arc(nx,ny,isA?dotR+3:dotR,0,Math.PI*2);
+      cx.fillStyle=isA?`rgb(${ir},${ig},${ib})`:`rgba(${ir},${ig},${ib},0.5)`;
+      cx.fill();
+      if(isA){
+        cx.strokeStyle=`rgba(${ir},${ig},${ib},0.3)`;cx.lineWidth=2;
+        cx.beginPath();cx.arc(nx,ny,dotR+9,0,Math.PI*2);cx.stroke();
+        cx.strokeStyle=`rgba(${ir},${ig},${ib},0.6)`;cx.lineWidth=1.5;
+        cx.beginPath();cx.moveTo(CP.x,CP.y);cx.lineTo(nx,ny);cx.stroke();
+      }
+    });
+    cx.fillStyle=info.col; cx.font='bold 12px JetBrains Mono,monospace'; cx.textAlign='center';
+    cx.fillText('Símbolo → bits: '+pts[activeIdx].bits,CP.x,H-16);
+
+    // waveform panel
+    const ap=pts[activeIdx];
+    cx.fillStyle='rgba(255,255,255,0.03)';cx.strokeStyle='rgba(255,255,255,0.08)';cx.lineWidth=0.5;
+    rrect(cx,WP.x,WP.y,WP.w,WP.h,8);cx.fill();cx.stroke();
+    const mx=WP.x+WP.w/2,my=WP.y+WP.h/2;
+    const amp=ap.y*0.35*WP.h/2+WP.h*0.36;
+    const freq=1+Math.abs(ap.x)*2.2, phase=ap.x*Math.PI;
+    cx.strokeStyle='rgba(255,255,255,0.1)';cx.lineWidth=0.5;
+    cx.beginPath();cx.moveTo(WP.x+8,my);cx.lineTo(WP.x+WP.w-8,my);cx.stroke();
+    cx.beginPath();
+    for(let px=0;px<=WP.w-16;px+=2){
+      const wy=my-amp*Math.sin(freq*Math.PI*2*(px/(WP.w-16))+phase-t*3);
+      if(px===0)cx.moveTo(WP.x+8+px,wy);else cx.lineTo(WP.x+8+px,wy);
+    }
+    cx.strokeStyle=`rgba(${ir},${ig},${ib},0.9)`;cx.lineWidth=2.5;cx.stroke();
+
+    cx.fillStyle='rgba(255,255,255,0.45)';cx.font='11px Inter,sans-serif';cx.textAlign='left';
+    cx.fillText('Amplitud: '+(ap.y>=0?'+':'')+ap.y.toFixed(2),WP.x+8,WP.y+16);
+    cx.fillText('Fase: '+(ap.x>=0?'+':'')+ap.x.toFixed(2)+'π',WP.x+8,WP.y+30);
+    cx.fillStyle=info.col;cx.font='bold 11px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('Onda portadora modulada',mx,WP.y-10);
+
+    // bits visual
+    const bstr=activeIdx.toString(2).padStart(Math.log2(order),'0');
+    const bw=Math.min(16,Math.floor((WP.w-20)/bstr.length));
+    const bstart=WP.x+(WP.w-bstr.length*bw)/2;
+    cx.fillStyle='rgba(255,255,255,0.35)';cx.font='10px JetBrains Mono,monospace';cx.textAlign='center';
+    cx.fillText('Bits:',WP.x+WP.w/2,WP.y+WP.h+18);
+    bstr.split('').forEach((b,i)=>{
+      const bx=bstart+i*bw;
+      cx.fillStyle=b==='1'?info.col:'rgba(255,255,255,0.1)';
+      rrect(cx,bx,WP.y+WP.h+22,bw-2,15,3);cx.fill();
+      cx.fillStyle=b==='1'?'#fff':'rgba(255,255,255,0.3)';
+      cx.font='bold 9px JetBrains Mono,monospace';cx.textAlign='center';
+      cx.fillText(b,bx+bw/2-1,WP.y+WP.h+33);
+    });
+
+    // SNR bar
+    const snrY=WP.y+WP.h+50;
+    cx.fillStyle='rgba(255,255,255,0.35)';cx.font='10px Inter,sans-serif';cx.textAlign='left';
+    cx.fillText('SNR mínimo requerido:',WP.x+4,snrY);
+    const snrPct=info.snr/40, barW=WP.w-8;
+    cx.fillStyle='rgba(255,255,255,0.08)';rrect(cx,WP.x+4,snrY+5,barW,7,3.5);cx.fill();
+    cx.fillStyle=info.snr<20?'#5DCAA5':info.snr<28?'#EF9F27':'#E24B4A';
+    rrect(cx,WP.x+4,snrY+5,barW*snrPct,7,3.5);cx.fill();
+    cx.fillStyle=info.col;cx.font='bold 10px JetBrains Mono,monospace';cx.textAlign='right';
+    cx.fillText(info.snr+' dB',WP.x+WP.w-4,snrY);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  window.setQAM=function(n){
+    order=n; activeIdx=0;
+    const info=QINFO[n];
+    document.getElementById('st-order').textContent=info.label;
+    document.getElementById('st-bits').textContent=info.bps+' bits';
+    document.getElementById('st-snr').textContent=info.snr+' dB';
+    document.getElementById('st-std').textContent=info.std;
+    document.getElementById('st-snr').style.color=info.snr<20?'var(--teal)':info.snr<28?'var(--amber)':'var(--red)';
+    [4,16,64,256,1024].forEach(o=>{const b=document.getElementById('b'+o);if(b){b.classList.toggle('active',o===n);}});
+  };
+  window.toggleNoise=function(){
+    noise=!noise;
+    document.getElementById('bnoise').textContent=noise?'– Quitar ruido':'+ Ruido';
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANIMATION 2 — OFDM
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  const {ctx:cx, W, H} = setupCanvas('cv2');
+  const SUB_COLS=['#378ADD','#5DCAA5','#7F77DD','#EF9F27','#D85A30','#1D9E75','#D4537E','#639922'];
+  const OFDMA_USERS=[
+    {col:'#378ADD',label:'Cliente A',slots:[0,1,2]},
+    {col:'#5DCAA5',label:'Cliente B',slots:[3,4]},
+    {col:'#7F77DD',label:'Cliente C',slots:[5,6,7]},
+    {col:'#EF9F27',label:'Cliente D',slots:[8,9]},
+  ];
+  let view='ofdm', showCP=false, t=0;
+
+  function drawBG(){
+    cx.fillStyle='#0A0F1E';cx.fillRect(0,0,W,H);
+    cx.strokeStyle='rgba(255,255,255,0.04)';cx.lineWidth=1;
+    for(let x=0;x<W;x+=30){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+    for(let y=0;y<H;y+=30){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+  }
+
+  function drawSingle(){
+    const mx=W/2,mid=H/2+10,amp=(H*0.5)*0.5;
+    cx.fillStyle='#378ADD';cx.font='bold 13px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('Portadora única — todo el canal, una sola señal',mx,24);
+    cx.fillStyle='rgba(255,255,255,0.35)';cx.font='11px Inter,sans-serif';
+    cx.fillText('Cualquier interferencia en esa frecuencia degrada toda la transmisión.',mx,42);
+    cx.strokeStyle='rgba(255,255,255,0.1)';cx.lineWidth=0.5;
+    cx.beginPath();cx.moveTo(60,mid);cx.lineTo(W-60,mid);cx.stroke();
+    cx.beginPath();
+    for(let px=0;px<=W-120;px+=2){
+      const wy=mid-amp*Math.sin(2*Math.PI*3*(px/(W-120))-t*2.5);
+      if(px===0)cx.moveTo(60+px,wy);else cx.lineTo(60+px,wy);
+    }
+    cx.strokeStyle='rgba(55,138,221,0.9)';cx.lineWidth=3;cx.stroke();
+    const nx=60+(W-120)*0.45;
+    cx.fillStyle='rgba(226,75,74,0.15)';cx.fillRect(nx-14,H*0.2,28,H*0.55);
+    cx.fillStyle='#E24B4A';cx.font='bold 10px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('Interferencia',nx,H*0.2+16);cx.fillText('→ falla total',nx,H*0.2+28);
+    cx.beginPath();cx.arc(nx,mid,11,0,Math.PI*2);cx.fill();
+    cx.fillStyle='white';cx.font='bold 12px Inter,sans-serif';cx.fillText('!',nx,mid+4);
+    cx.strokeStyle='rgba(255,255,255,0.2)';cx.lineWidth=1;
+    cx.beginPath();cx.moveTo(60,H-40);cx.lineTo(W-60,H-40);cx.stroke();
+    cx.fillStyle='rgba(55,138,221,0.7)';cx.font='bold 11px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('← Canal completo = 20 MHz →',mx,H-24);
+  }
+
+  function drawOFDM(){
+    const nsubs=10,margin=50,top=65,bot=H-80,subW=(W-margin*2)/nsubs,symH=bot-top,mx=W/2;
+    cx.fillStyle='#378ADD';cx.font='bold 13px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('OFDM — '+nsubs+' sub-portadoras paralelas y ortogonales',mx,24);
+    cx.fillStyle='rgba(255,255,255,0.35)';cx.font='11px Inter,sans-serif';
+    cx.fillText('Si una sub-portadora sufre interferencia, las demás siguen transmitiendo sin errores.',mx,42);
+    for(let i=0;i<nsubs;i++){
+      const sx=margin+i*subW,midY=top+symH/2;
+      const amp=symH*0.28*(0.7+0.3*Math.sin(i*1.3));
+      const freq=1+i*0.3, phase=i*0.7;
+      const col=SUB_COLS[i%SUB_COLS.length];
+      const [r,g,b]=hexRGB(col);
+      cx.fillStyle='rgba(255,255,255,0.02)';cx.strokeStyle='rgba(255,255,255,0.06)';cx.lineWidth=0.5;
+      cx.beginPath();cx.rect(sx,top,subW,symH);cx.fill();cx.stroke();
+      cx.strokeStyle='rgba(255,255,255,0.08)';cx.lineWidth=0.5;
+      cx.beginPath();cx.moveTo(sx,midY);cx.lineTo(sx+subW,midY);cx.stroke();
+      cx.beginPath();
+      for(let px=2;px<=subW-2;px+=1.5){
+        const wy=midY-amp*Math.sin(freq*Math.PI*2*(px/subW)-t*2+phase);
+        if(px===2)cx.moveTo(sx+px,wy);else cx.lineTo(sx+px,wy);
+      }
+      cx.strokeStyle=`rgba(${r},${g},${b},0.85)`;cx.lineWidth=2;cx.stroke();
+      cx.fillStyle=col;cx.font='bold 10px JetBrains Mono,monospace';cx.textAlign='center';
+      cx.fillText('f'+(i+1),sx+subW/2,top-8);
+      const bits=['10','01','11','00','10','11','01','00','10','01'][i];
+      cx.fillStyle=`rgba(${r},${g},${b},0.8)`;cx.font='bold 9px JetBrains Mono,monospace';
+      cx.fillText(bits,sx+subW/2,bot+14);
+    }
+    if(showCP){
+      const cpW=subW*0.25;
+      for(let i=0;i<nsubs;i++){
+        const sx=margin+i*subW;
+        cx.fillStyle='rgba(239,159,39,0.2)';cx.fillRect(sx,top,cpW,symH);
+        cx.strokeStyle='rgba(239,159,39,0.6)';cx.lineWidth=1;cx.setLineDash([2,2]);
+        cx.beginPath();cx.moveTo(sx+cpW,top);cx.lineTo(sx+cpW,bot);cx.stroke();
+        cx.setLineDash([]);
+      }
+      cx.fillStyle='#EF9F27';cx.font='bold 9px Inter,sans-serif';cx.textAlign='center';
+      cx.fillText('CP',margin+subW*0.12,top-8);
+      cx.fillStyle='rgba(255,255,255,0.4)';cx.font='10px Inter,sans-serif';
+      cx.fillText('Cyclic Prefix → absorbe retardo multipath',W/2,bot+30);
+    }
+    cx.fillStyle='rgba(255,255,255,0.3)';cx.font='10px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('← bits por sub-portadora →',W/2,bot+(showCP?46:28));
+    cx.fillText('Ortogonalidad: ICI = 0 — sin interferencia entre sub-portadoras',W/2,H-10);
+  }
+
+  function drawOFDMA(){
+    const nsubs=10,ntime=4,margin=55,top=70,bot=H-55;
+    const subW=(W-margin*2)/nsubs,timeH=(bot-top)/ntime,mx=W/2;
+    cx.fillStyle='#7F77DD';cx.font='bold 13px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('OFDMA — Wi-Fi 6: múltiples clientes en paralelo',mx,24);
+    cx.fillStyle='rgba(255,255,255,0.35)';cx.font='11px Inter,sans-serif';
+    cx.fillText('Cada cliente recibe sus propias sub-portadoras (Resource Units) al mismo tiempo.',mx,42);
+    cx.fillStyle='rgba(255,255,255,0.3)';cx.font='10px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('Sub-portadoras (frecuencia) →',mx,bot+18);
+    cx.save();cx.translate(38,top+(bot-top)/2);cx.rotate(-Math.PI/2);cx.fillText('Tiempo →',0,0);cx.restore();
+    for(let row=0;row<ntime;row++){
+      const ty=top+row*timeH;
+      OFDMA_USERS.forEach(u=>{
+        u.slots.forEach(s=>{
+          const sx=margin+s*subW;
+          const pulse=0.75+0.25*Math.abs(Math.sin(t*2+s*0.5+row*0.7));
+          const [r,g,b]=hexRGB(u.col);
+          cx.fillStyle=`rgba(${r},${g},${b},${(pulse*0.4).toFixed(2)})`;
+          cx.strokeStyle=`rgba(${r},${g},${b},0.7)`;cx.lineWidth=1;
+          cx.beginPath();cx.rect(sx+1,ty+1,subW-2,timeH-2);cx.fill();cx.stroke();
+          if(timeH>22){
+            const wa=(timeH-8)*0.3,midWy=ty+timeH/2;
+            cx.beginPath();
+            for(let px=3;px<=subW-3;px+=2){
+              const wy=midWy-wa*Math.sin(3*Math.PI*2*(px/subW)-t*2.5+s);
+              if(px===3)cx.moveTo(sx+px,wy);else cx.lineTo(sx+px,wy);
+            }
+            cx.strokeStyle=`rgba(${r},${g},${b},0.9)`;cx.lineWidth=1.5;cx.stroke();
+          }
+        });
+      });
+      cx.fillStyle='rgba(255,255,255,0.3)';cx.font='10px JetBrains Mono,monospace';cx.textAlign='left';
+      cx.fillText('t'+(row+1),42,ty+timeH/2+4);
+    }
+    for(let i=0;i<nsubs;i++){
+      cx.fillStyle='rgba(255,255,255,0.3)';cx.font='9px JetBrains Mono,monospace';cx.textAlign='center';
+      cx.fillText('f'+(i+1),margin+i*subW+subW/2,top-8);
+    }
+    OFDMA_USERS.forEach((u,i)=>{
+      const lx=margin+i*(W-margin*2)/4;
+      const [r,g,b]=hexRGB(u.col);
+      cx.fillStyle=`rgba(${r},${g},${b},0.45)`;cx.strokeStyle=u.col;cx.lineWidth=1;
+      rrect(cx,lx,bot+28,12,12,3);cx.fill();cx.stroke();
+      cx.fillStyle='rgba(255,255,255,0.6)';cx.font='10px Inter,sans-serif';cx.textAlign='left';
+      cx.fillText(u.label+' ('+u.slots.length+' RUs)',lx+15,bot+38);
+    });
+  }
+
+  function frame(){
+    t+=0.016; drawBG();
+    if(view==='single')drawSingle();
+    else if(view==='ofdm')drawOFDM();
+    else drawOFDMA();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  const VINFO={
+    single:{mode:'Portadora única',subs:'1',eff:'Baja',mp:'Baja'},
+    ofdm:{mode:'OFDM',subs:'52–256',eff:'Alta',mp:'Muy alta'},
+    ofdma:{mode:'OFDMA (Wi-Fi 6)',subs:'por usuario',eff:'Máxima',mp:'Muy alta'},
+  };
+  window.setOFDMView=function(v){
+    view=v; const info=VINFO[v];
+    document.getElementById('o-mode').textContent=info.mode;
+    document.getElementById('o-subs').textContent=info.subs;
+    document.getElementById('o-eff').textContent=info.eff;
+    document.getElementById('o-mp').textContent=info.mp;
+    document.getElementById('o-eff').style.color=v==='single'?'var(--red)':'var(--teal)';
+    document.getElementById('o-mp').style.color=v==='single'?'var(--amber)':'var(--teal)';
+    ['vs','vo','voa'].forEach((id,i)=>{
+      const btn=document.getElementById(id);
+      if(btn) btn.classList.toggle('active',['single','ofdm','ofdma'][i]===v);
+    });
+  };
+  window.toggleCP=function(){
+    showCP=!showCP;
+    document.getElementById('bcp').textContent=showCP?'Ocultar Cyclic Prefix':'Ver Cyclic Prefix';
+    document.getElementById('bcp').classList.toggle('active',showCP);
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANIMATION 3 — CSMA/CA
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  const {ctx:cx, W, H} = setupCanvas('cv3');
+  const AP={x:W/2,y:85};
+  const DCOLS=['#378ADD','#5DCAA5','#7F77DD','#EF9F27','#D85A30'];
+  const SC={IDLE:'#444E6A',SENSE:'#EF9F27',BACKOFF:'#D85A30',SEND:'#1D9E75',ACK:'#378ADD',ERR:'#E24B4A'};
+  const SE={IDLE:'Libre',SENSE:'Detecta',BACKOFF:'Backoff',SEND:'TX',ACK:'ACK',ERR:'Colisión'};
+  let devs=[],pkts=[],cflash=0,ns=0,nc=0,na=0,chBusy=false,lt=performance.now(),gt=0;
+
+  function mkDev(id){
+    const ang=[200,340,140,260,80,20][id%6]*Math.PI/180;
+    return{id,col:DCOLS[id%5],x:AP.x+Math.cos(ang)*175,y:AP.y+Math.sin(ang)*170+30,
+      state:'IDLE',bo:0,boMax:8,tt:0,wt:Math.random()*2+0.5,ret:0};
+  }
+  function upd(){
+    document.getElementById('cs-s').textContent=ns;
+    document.getElementById('cs-c').textContent=nc;
+    document.getElementById('cs-a').textContent=na;
+  }
+  function spawnPkt(f,to,col,type){pkts.push({x:f.x,y:f.y,tx:to.x,ty:to.y,col,type,life:1});}
+
+  function step(dt){
+    const txD=devs.filter(d=>d.state==='SEND');
+    chBusy=txD.length>0;
+    const el=document.getElementById('ch-status');
+    el.textContent='Canal: '+(chBusy?'Ocupado':'Libre');
+    el.style.color=chBusy?'var(--red)':'var(--teal)';
+    if(txD.length>=2){
+      nc++;txD.forEach(d=>{d.state='ERR';d.bo=Math.floor(Math.random()*16)+4;d.boMax=Math.min(d.boMax*2,64);d.tt=0.5;d.ret++;});
+      cflash=0.5;upd();
+    }
+    devs.forEach(d=>{
+      d.tt=Math.max(0,d.tt-dt);d.wt=Math.max(0,d.wt-dt);
+      if(d.wt>0)return;
+      if(d.state==='IDLE'){d.state='SENSE';d.wt=0.15+Math.random()*0.2;}
+      else if(d.state==='SENSE'){
+        if(chBusy){d.state='BACKOFF';d.bo=Math.floor(Math.random()*d.boMax)+2;d.wt=0;}
+        else{d.state='SEND';d.tt=0.7+Math.random()*0.4;spawnPkt(d,AP,d.col,'D');}
+      }else if(d.state==='BACKOFF'){
+        d.bo--;d.wt=0.1;
+        if(d.bo<=0){if(!chBusy){d.state='SEND';d.tt=0.7;spawnPkt(d,AP,d.col,'D');}else{d.boMax=Math.min(d.boMax*2,64);d.bo=Math.floor(Math.random()*d.boMax)+2;}}
+      }else if(d.state==='SEND'&&d.tt<=0){d.state='ACK';d.tt=0.35;ns++;spawnPkt(AP,d,d.col,'A');upd();}
+      else if(d.state==='ACK'&&d.tt<=0){d.state='IDLE';d.boMax=8;d.ret=0;d.wt=0.8+Math.random()*1.5;na++;upd();}
+      else if(d.state==='ERR'&&d.tt<=0){d.state='BACKOFF';d.wt=0;}
+    });
+    pkts=pkts.filter(p=>p.life>0);
+    pkts.forEach(p=>{p.x+=(p.tx-p.x)*0.09*60*dt;p.y+=(p.ty-p.y)*0.09*60*dt;p.life-=dt*0.75;
+      if(Math.abs(p.x-p.tx)<4&&Math.abs(p.y-p.ty)<4)p.life=0;});
+    cflash=Math.max(0,cflash-dt);
+  }
+
+  function frame(now){
+    const dt=Math.min((now-lt)/1000,0.05);lt=now;gt+=dt;step(dt);
+    cx.fillStyle='#0A0F1E';cx.fillRect(0,0,W,H);
+    cx.strokeStyle='rgba(255,255,255,0.04)';cx.lineWidth=1;
+    for(let x=0;x<W;x+=30){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+    for(let y=0;y<H;y+=30){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+    cx.fillStyle='#378ADD';cx.font='bold 13px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('CSMA/CA — Carrier Sense Multiple Access / Collision Avoidance',W/2,20);
+    if(cflash>0){cx.fillStyle=`rgba(226,75,74,${cflash*0.18})`;cx.fillRect(0,0,W,H);}
+    const busy=chBusy,pulse=busy?0.5+0.5*Math.abs(Math.sin(gt*9)):0.2;
+    cx.strokeStyle=`rgba(55,138,221,${pulse})`;cx.lineWidth=2;cx.setLineDash([4,4]);
+    cx.beginPath();cx.arc(AP.x,AP.y,62,0,Math.PI*2);cx.stroke();cx.setLineDash([]);
+    cx.fillStyle='#0F1628';cx.strokeStyle='#378ADD';cx.lineWidth=2;
+    cx.beginPath();cx.arc(AP.x,AP.y,20,0,Math.PI*2);cx.fill();cx.stroke();
+    cx.fillStyle='#378ADD';cx.font='bold 9px Inter,sans-serif';cx.textAlign='center';cx.fillText('AP',AP.x,AP.y+3);
+    cx.fillStyle='rgba(255,255,255,0.3)';cx.font='9px Inter,sans-serif';cx.fillText(busy?'RX…':'libre',AP.x,AP.y+34);
+    pkts.forEach(p=>{
+      const [r,g,b]=hexRGB(p.col);
+      cx.beginPath();cx.arc(p.x,p.y,5,0,Math.PI*2);
+      cx.fillStyle=`rgba(${r},${g},${b},${Math.min(1,p.life*2)})`;cx.fill();
+      cx.strokeStyle='rgba(255,255,255,0.3)';cx.lineWidth=1;cx.stroke();
+      cx.fillStyle=`rgba(${r},${g},${b},${Math.min(1,p.life*2)})`;cx.font='bold 8px JetBrains Mono,monospace';cx.textAlign='center';
+      cx.fillText(p.type==='A'?'ACK':'DATA',p.x,p.y-9);
+    });
+    devs.forEach(d=>{
+      const sc=SC[d.state];const[r,g,b]=hexRGB(sc);const[dr,dg,db]=hexRGB(d.col);
+      cx.strokeStyle=d.state==='SEND'?`rgba(${dr},${dg},${db},0.35)`:'rgba(255,255,255,0.06)';
+      cx.lineWidth=d.state==='SEND'?2:0.5;cx.setLineDash(d.state==='SEND'?[]:[3,3]);
+      cx.beginPath();cx.moveTo(d.x,d.y);cx.lineTo(AP.x,AP.y);cx.stroke();cx.setLineDash([]);
+      if(d.state==='SEND'){
+        const p=0.5+0.5*Math.sin(gt*12);
+        cx.strokeStyle=`rgba(${dr},${dg},${db},${p*0.3})`;cx.lineWidth=2;
+        cx.beginPath();cx.arc(d.x,d.y,28,0,Math.PI*2);cx.stroke();
+      }
+      cx.fillStyle='#0A0F1E';cx.strokeStyle=sc;cx.lineWidth=2.5;
+      cx.beginPath();cx.arc(d.x,d.y,19,0,Math.PI*2);cx.fill();cx.stroke();
+      cx.fillStyle=`rgba(${r},${g},${b},0.12)`;cx.beginPath();cx.arc(d.x,d.y,19,0,Math.PI*2);cx.fill();
+      cx.fillStyle='rgba(255,255,255,0.7)';cx.font='500 9px Inter,sans-serif';cx.textAlign='center';cx.fillText('Dev'+(d.id+1),d.x,d.y+3);
+      cx.fillStyle=`rgba(${r},${g},${b},0.88)`;rrect(cx,d.x-24,d.y+22,48,15,8);cx.fill();
+      cx.fillStyle='white';cx.font='bold 9px Inter,sans-serif';cx.textAlign='center';cx.fillText(SE[d.state],d.x,d.y+33);
+      if(d.state==='BACKOFF'){cx.fillStyle='#D85A30';cx.font='bold 9px JetBrains Mono,monospace';cx.fillText('bo:'+d.bo,d.x,d.y+48);}
+    });
+    const legY=H-14;
+    const legend=[['IDLE','Libre'],['SENSE','Detecta canal'],['BACKOFF','Backoff aleatorio'],['SEND','Transmitiendo'],['ACK','Espera ACK'],['ERR','Colisión']];
+    legend.forEach(([s,lbl],i)=>{
+      const lx=10+i*(W-20)/6;const col=SC[s];const[r,g,b]=hexRGB(col);
+      cx.fillStyle=`rgba(${r},${g},${b},0.6)`;cx.strokeStyle=col;cx.lineWidth=1;
+      cx.beginPath();cx.arc(lx+5,legY,5,0,Math.PI*2);cx.fill();cx.stroke();
+      cx.fillStyle='rgba(255,255,255,0.4)';cx.font='9px Inter,sans-serif';cx.textAlign='left';cx.fillText(lbl,lx+12,legY+4);
+    });
+    requestAnimationFrame(frame);
+  }
+
+  window.resetCSMA=function(){devs=[mkDev(0),mkDev(1),mkDev(2)];pkts=[];cflash=0;ns=nc=na=0;chBusy=false;upd();document.getElementById('cs-d').textContent=3;};
+  window.addCSMADev=function(){if(devs.length<5){devs.push(mkDev(devs.length));document.getElementById('cs-d').textContent=devs.length;}};
+  window.forceCSMACollision=function(){const av=devs.filter(d=>d.state==='IDLE'||d.state==='SENSE');if(av.length>=2){av.slice(0,2).forEach(d=>{d.state='SEND';d.tt=0.3;spawnPkt(d,AP,d.col,'D');});}};
+
+  resetCSMA();
+  requestAnimationFrame(frame);
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANIMATION 4 — VIAJE DEL DATO
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  const {ctx:cx, W, H} = setupCanvas('cv4');
+  const PHASES=[
+    {id:0,name:'Dato del usuario',layer:'Capa 7 — Aplicación',pdu:'Mensaje',proto:'HTTP/TLS',mod:'—',col:'#5DCAA5',desc:'El usuario presiona enviar. La app genera el payload — texto, imagen, video.',y:52},
+    {id:1,name:'Segmentación TCP',layer:'Capa 4 — Transporte',pdu:'Segmento',proto:'TCP',mod:'—',col:'#378ADD',desc:'TCP divide el dato en segmentos y agrega número de secuencia y puertos.',y:100},
+    {id:2,name:'Empaquetado IP',layer:'Capa 3 — Red',pdu:'Paquete IP',proto:'IPv4/IPv6',mod:'—',col:'#7F77DD',desc:'IP agrega dirección origen/destino. Define el camino lógico por la red.',y:148},
+    {id:3,name:'Trama 802.11',layer:'Capa 2 — Enlace',pdu:'Trama 802.11',proto:'802.11ax',mod:'—',col:'#EF9F27',desc:'MAC agrega dirección MAC del AP, BSSID y número de secuencia 802.11.',y:196},
+    {id:4,name:'Modulación QAM',layer:'Capa 1 — Física',pdu:'Símbolo OFDM',proto:'PHY 802.11ax',mod:'1024-QAM',col:'#D85A30',desc:'Los bits se convierten en símbolos QAM. 1024-QAM = 10 bits por símbolo.',y:244},
+    {id:5,name:'Señal RF en el aire',layer:'Capa 1 — Física',pdu:'Onda EM',proto:'2.4/5/6 GHz',mod:'OFDM 256 sub-port.',col:'#D4537E',desc:'El convertidor D/A genera la señal analógica. La antena irradia al aire.',y:292},
+    {id:6,name:'Propagación RF',layer:'Medio físico',pdu:'Campo EM',proto:'Espectro RF',mod:'—',col:'#888780',desc:'La onda viaja a ~3×10⁸ m/s. Se atenúa con distancia y obstáculos.',y:340},
+    {id:7,name:'Demodulación en cliente',layer:'Capa 1 — RX',pdu:'Bits',proto:'PHY RX',mod:'OFDM→QAM→bits',col:'#D85A30',desc:'El receptor ADC digitaliza, FFT recupera símbolos OFDM, QAM extrae bits.',y:388},
+    {id:8,name:'Dato entregado',layer:'Capa 7 — App cliente',pdu:'Mensaje',proto:'HTTP/TLS',mod:'—',col:'#5DCAA5',desc:'Las capas se desenrollan. La aplicación del cliente recibe el dato original.',y:430},
+  ];
+  let phase=-1,pct=0,jspd=1,running=false,lt=performance.now(),wt=0;
+
+  function updStats(i){
+    if(i<0||i>=PHASES.length)return;
+    const p=PHASES[i];
+    document.getElementById('jst-phase').textContent=p.name;
+    document.getElementById('jst-layer').textContent=p.layer;
+    document.getElementById('jst-pdu').textContent=p.pdu;
+    document.getElementById('jst-proto').textContent=p.proto;
+    document.getElementById('jst-mod').textContent=p.mod;
+    document.getElementById('j-phase').textContent=p.name;
+    document.getElementById('jst-layer').style.color=p.col;
+    document.getElementById('jst-pdu').style.color=p.col;
+  }
+
+  const barX=44,barW=W-175;
+
+  function frame(now){
+    const dt=Math.min((now-lt)/1000,0.05);lt=now;
+    if(running&&phase>=0){pct+=dt*jspd*0.85;if(pct>=1){pct=0;phase++;if(phase>=PHASES.length){phase=-1;running=false;document.getElementById('j-phase').textContent='Completado ✓';}else{updStats(phase);}}}
+    cx.fillStyle='#0A0F1E';cx.fillRect(0,0,W,H);
+    cx.strokeStyle='rgba(255,255,255,0.04)';cx.lineWidth=1;
+    for(let x=0;x<W;x+=30){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+    for(let y=0;y<H;y+=30){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+    cx.fillStyle='#378ADD';cx.font='bold 13px Inter,sans-serif';cx.textAlign='center';
+    cx.fillText('Viaje del dato — del teclado al cliente Wi-Fi',W/2,18);
+
+    PHASES.forEach((ph,i)=>{
+      const isA=phase===i,isDone=phase>i;
+      const[r,g,b]=hexRGB(ph.col),alpha=isDone?0.85:isA?1:0.3;
+      cx.fillStyle=`rgba(${r},${g},${b},${isA?0.1:0.03})`;
+      rrect(cx,barX-3,ph.y-19,barW+6,42,5);cx.fill();
+      if(isA){cx.strokeStyle=`rgba(${r},${g},${b},0.5)`;cx.lineWidth=1;rrect(cx,barX-3,ph.y-19,barW+6,42,5);cx.stroke();}
+
+      cx.fillStyle=`rgba(${r},${g},${b},${alpha})`;
+      rrect(cx,barX,ph.y-14,112,20,10);cx.fill();
+      cx.fillStyle='rgba(0,0,0,0.7)';cx.font='bold 9px Inter,sans-serif';cx.textAlign='left';
+      cx.fillText(ph.layer.slice(0,18),barX+5,ph.y-1);
+
+      cx.fillStyle=isA||isDone?'rgba(255,255,255,0.85)':'rgba(255,255,255,0.3)';
+      cx.font=(isA?'bold ':'')+'12px Inter,sans-serif';cx.textAlign='left';
+      cx.fillText(ph.name,barX+120,ph.y-3);
+
+      cx.fillStyle=`rgba(${r},${g},${b},0.18)`;rrect(cx,barX+120,ph.y+3,65,13,6);cx.fill();
+      cx.fillStyle=`rgba(${r},${g},${b},0.9)`;cx.font='9px JetBrains Mono,monospace';cx.textAlign='left';cx.fillText(ph.pdu,barX+124,ph.y+13);
+
+      cx.fillStyle='rgba(255,255,255,0.3)';cx.font='10px Inter,sans-serif';cx.textAlign='left';
+      const desc=ph.desc.length>55?ph.desc.slice(0,55)+'…':ph.desc;
+      cx.fillText(desc,barX+193,ph.y+13);
+
+      if(isDone){
+        cx.fillStyle=`rgba(${r},${g},${b},0.75)`;
+        cx.beginPath();cx.arc(barW+65,ph.y-6,8,0,Math.PI*2);cx.fill();
+        cx.fillStyle='white';cx.font='bold 10px Inter,sans-serif';cx.textAlign='center';cx.fillText('✓',barW+65,ph.y-2);
+      }
+
+      if(isA){
+        const pr=pct;
+        cx.fillStyle=`rgba(${r},${g},${b},0.2)`;
+        rrect(cx,barX-3,ph.y-19,Math.max(0,(barW+6)*pr),42,5);cx.fill();
+        const px=barX-3+(barW+9)*pr;
+        cx.fillStyle=`rgba(${r},${g},${b},0.95)`;cx.beginPath();cx.arc(px,ph.y-7,7,0,Math.PI*2);cx.fill();
+        cx.strokeStyle='rgba(255,255,255,0.5)';cx.lineWidth=1.5;cx.beginPath();cx.arc(px,ph.y-7,7,0,Math.PI*2);cx.stroke();
+        if(ph.id===5||ph.id===6){
+          wt+=dt;
+          for(let w=0;w<4;w++){const wr=(wt*2+w*0.25)%1;cx.strokeStyle=`rgba(${r},${g},${b},${(1-wr)*0.45})`;cx.lineWidth=1.5;cx.beginPath();cx.arc(px,ph.y-7,wr*35,0,Math.PI*2);cx.stroke();}
+        }
+      }
+    });
+
+    // encapsulation stack
+    const pvX=W-110,pvY=50;
+    cx.fillStyle='rgba(255,255,255,0.4)';cx.font='bold 10px Inter,sans-serif';cx.textAlign='center';cx.fillText('Encapsulación',pvX,pvY-10);
+    const lnames=['App','TCP','IP','802.11','PHY','RF'],lcols=['#5DCAA5','#378ADD','#7F77DD','#EF9F27','#D85A30','#D4537E'];
+    const layers=phase>=0?Math.min(phase+1,6):0;
+    for(let i=0;i<6;i++){
+      const active=i<layers,ly=pvY+(5-i)*28,lw=72+i*7,lx=pvX-lw/2;
+      const[r,g,b]=hexRGB(lcols[i]);
+      cx.fillStyle=active?`rgba(${r},${g},${b},0.8)`:'rgba(255,255,255,0.05)';
+      rrect(cx,lx,ly,lw,22,4);cx.fill();
+      if(active){cx.strokeStyle=`rgba(${r},${g},${b},0.5)`;cx.lineWidth=1;rrect(cx,lx,ly,lw,22,4);cx.stroke();}
+      cx.fillStyle=active?'rgba(0,0,0,0.75)':'rgba(255,255,255,0.25)';cx.font=(i===layers-1&&phase>=0?'bold ':'')+'9px Inter,sans-serif';cx.textAlign='center';cx.fillText(lnames[i],pvX,ly+14);
+    }
+    if(phase>=0&&phase<PHASES.length){
+      const p=PHASES[phase];const[r,g,b]=hexRGB(p.col);
+      cx.fillStyle=`rgba(${r},${g},${b},0.12)`;rrect(cx,pvX-52,pvY+180,104,26,6);cx.fill();
+      cx.strokeStyle=`rgba(${r},${g},${b},0.5)`;cx.lineWidth=1;rrect(cx,pvX-52,pvY+180,104,26,6);cx.stroke();
+      cx.fillStyle=p.col;cx.font='bold 9px JetBrains Mono,monospace';cx.textAlign='center';cx.fillText(p.pdu,pvX,pvY+191);
+      cx.fillStyle='rgba(255,255,255,0.4)';cx.font='9px Inter,sans-serif';cx.fillText(p.proto,pvX,pvY+202);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.startJourney=function(){phase=0;pct=0;running=true;wt=0;updStats(0);};
+  window.setJSpeed=function(s){jspd=s;};
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
